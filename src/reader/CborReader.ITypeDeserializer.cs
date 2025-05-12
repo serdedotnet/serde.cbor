@@ -5,9 +5,9 @@ namespace Serde.Cbor;
 
 partial class CborReader<TReader>
 {
-    private struct DeserializeType(CborReader<TReader> deserializer) : ITypeDeserializer
+    private struct DeserializeType(CborReader<TReader> deserializer, int? mapLength) : ITypeDeserializer
     {
-        int? ITypeDeserializer.SizeOpt => null;
+        int? ITypeDeserializer.SizeOpt => mapLength;
 
         private int _count;
 

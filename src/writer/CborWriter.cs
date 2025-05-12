@@ -34,18 +34,23 @@ internal sealed partial class CborWriter : ISerializer
         }
         if (typeInfo.Kind == InfoKind.List)
         {
-            if (length <= 15)
+            if (length <= 0x17)
             {
-                _out.Add((byte)(0x90 | length));
+                _out.Add((byte)(0x80 + length));
             }
-            else if (length <= 0xffff)
+            else if (length <= byte.MaxValue)
             {
-                _out.Add(0xdc);
+                _out.Add(0x98);
+                _out.Add((byte)length);
+            }
+            else if (length <= ushort.MaxValue)
+            {
+                _out.Add(0x99);
                 WriteBigEndian((ushort)length);
             }
             else
             {
-                _out.Add(0xdd);
+                _out.Add(0x9a);
                 WriteBigEndian((uint)length);
             }
         }
@@ -62,18 +67,23 @@ internal sealed partial class CborWriter : ISerializer
 
     private void WriteMapLength(int length)
     {
-        if (length <= 15)
+        if (length <= 0x17)
         {
-            _out.Add((byte)(0x80 | length));
+            _out.Add((byte)(0xa0 + length));
         }
-        else if (length <= 0xffff)
+        else if (length <= byte.MaxValue)
         {
-            _out.Add(0xde);
+            _out.Add(0xb8);
+            _out.Add((byte)length);
+        }
+        else if (length <= ushort.MaxValue)
+        {
+            _out.Add(0xb9);
             WriteBigEndian((ushort)length);
         }
         else
         {
-            _out.Add(0xdf);
+            _out.Add(0xba);
             WriteBigEndian((uint)length);
         }
     }
@@ -85,13 +95,13 @@ internal sealed partial class CborWriter : ISerializer
 
     public void WriteF64(double d)
     {
-        _out.Add(0xcb);
+        _out.Add(0xfb);
         WriteBigEndian(d);
     }
 
     public void WriteF32(float f)
     {
-        _out.Add(0xca);
+        _out.Add(0xfa);
         WriteBigEndian(f);
     }
 
@@ -134,7 +144,7 @@ internal sealed partial class CborWriter : ISerializer
     }
     public void WriteNull()
     {
-        _out.Add(0xc0);
+        _out.Add(0xf6);
     }
 
     public void WriteDateTimeOffset(DateTimeOffset dt)
@@ -149,31 +159,27 @@ internal sealed partial class CborWriter : ISerializer
 
     public void WriteBytes(ReadOnlyMemory<byte> bytes)
     {
-        byte code = bytes.Length switch
+        var bytesLen = bytes.Length;
+        (byte code, int prefixLen) = bytesLen switch
         {
-            <= 0xff => 0xc4,
-            <= 0xffff => 0xc5,
-            _ => 0xc6
+            <= 0x17 => ((byte)(0x40 + bytesLen), 1),
+            <= byte.MaxValue => ((byte)0x58, 2),
+            <= ushort.MaxValue => ((byte)0x59, 3),
+            _ => ((byte)0x5a, 5)
         };
-        var prefixLen = code switch
-        {
-            0xc4 => 2,
-            0xc5 => 3,
-            _ => 5
-        };
-        var span = _out.GetAppendSpan(prefixLen + bytes.Length);
-        _out.Count += prefixLen + bytes.Length;
+        var span = _out.GetAppendSpan(prefixLen + bytesLen);
+        _out.Count += prefixLen + bytesLen;
         span[0] = code;
         switch (prefixLen)
         {
             case 2:
-                span[1] = (byte)bytes.Length;
+                span[1] = (byte)bytesLen;
                 break;
             case 3:
-                WriteBigEndian((ushort)bytes.Length);
+                WriteBigEndian((ushort)bytesLen);
                 break;
             case 5:
-                WriteBigEndian((uint)bytes.Length);
+                WriteBigEndian((uint)bytesLen);
                 break;
         }
         bytes.Span.CopyTo(span[prefixLen..]);

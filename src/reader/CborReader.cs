@@ -143,11 +143,15 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         else if (typeInfo.Kind == InfoKind.Dictionary)
         {
             int length;
-            if (b <= 0x8f)
+            if (b is >= 0xa0 and  <= 0xb7)
             {
-                length = b & 0xf;
+                length = b - 0xa0;
             }
-            else if (b == 0xde)
+            else if (b == 0xb8)
+            {
+                length = EatByteOrThrow();
+            }
+            else if (b == 0xb9)
             {
                 length = ReadBigEndianU16();
             }
@@ -180,7 +184,7 @@ internal sealed partial class CborReader<TReader> : IDeserializer
             span = RefillNoEof(0);
         }
         var b = span[0];
-        if (b != 0xcb)
+        if (b != 0xfb)
         {
             throw new Exception($"Expected 64-bit double, got 0x{b:x}");
         }
@@ -199,7 +203,7 @@ internal sealed partial class CborReader<TReader> : IDeserializer
             span = RefillNoEof(5);
         }
         var b = span[0];
-        if (b != 0xca)
+        if (b != 0xfa)
         {
             throw new Exception($"Expected 32-bit float, got 0x{b:x}");
         }
@@ -388,9 +392,10 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         var b = EatByteOrThrow();
         int length = b switch
         {
-            0xc4 => EatByteOrThrow(),
-            0xc5 => ReadBigEndianU16(), // 16-bit length
-            0xc6 => checked((int)ReadBigEndianU32()), // 32-bit length
+            >= 0x40 and <= 0x57 => b - 0x40,
+            0x58 => EatByteOrThrow(),
+            0x59 => ReadBigEndianU16(), // 16-bit length
+            0x5a => checked((int)ReadBigEndianU32()), // 32-bit length
             _ => throw new DeserializeException($"Expected bytes, got 0x{b:x}"),
         };
         if (!_reader.FillBuffer(length))
@@ -446,50 +451,47 @@ internal sealed partial class CborReader<TReader> : IDeserializer
 
     ITypeDeserializer IDeserializer.ReadType(ISerdeInfo typeInfo)
     {
-        if (typeInfo.Kind == InfoKind.List || typeInfo.Kind == InfoKind.Dictionary)
+        switch (typeInfo.Kind)
         {
-            return ReadCollection(typeInfo);
+            case InfoKind.List:
+            case InfoKind.Dictionary:
+                return ReadCollection(typeInfo);
+            case InfoKind.Enum:
+                return new EnumDeserializer(this);
+            case InfoKind.CustomType:
+                // Custom types are serialized as a map
+                int? length = ReadMapLength();
+                return new DeserializeType(this, length);
+            default:
+                throw new ArgumentException("Unexpected info kind: " + typeInfo.Kind);
         }
-        else if (typeInfo.Kind == InfoKind.CustomType)
+    }
+
+    private int ReadMapLength()
+    {
+        var b = EatByteOrThrow();
+        int length;
+        if (b is >= 0xa0 and <= 0xb7)
         {
-            var fieldCount = typeInfo.FieldCount;
-            var b = EatByteOrThrow();
-            int length;
-            if (fieldCount <= 0xff)
-            {
-                if (b > 0x9f)
-                {
-                    throw new Exception($"Expected array, got 0x{b:x}");
-                }
-                length = b & 0xf;
-            }
-            else if (fieldCount <= 0xffff)
-            {
-                if (b != 0xdc)
-                {
-                    throw new Exception($"Expected 16-bit array, got 0x{b:x}");
-                }
-                length = ReadBigEndianU16();
-            }
-            else
-            {
-                if (b != 0xdd)
-                {
-                    throw new Exception($"Expected 32-bit array, got 0x{b:x}");
-                }
-                length = (int)ReadBigEndianU32();
-            }
-            if (length != fieldCount)
-            {
-                throw new Exception($"Expected array of length {fieldCount}, got {length}");
-            }
-            return new DeserializeType(this);
+            length = b - 0xa0;
         }
-        else if (typeInfo.Kind == InfoKind.Enum)
+        else if (b == 0xb8)
         {
-            return new DeserializeType(this);
+            length = EatByteOrThrow();
         }
-        throw new Exception("Expected custom type or enum");
+        else if (b == 0xb9)
+        {
+            length = ReadBigEndianU16();
+        }
+        else if (b == 0xba)
+        {
+            length = (int)ReadBigEndianU32();
+        }
+        else
+        {
+            throw new DeserializeException($"Expected map, got 0x{b:x}");
+        }
+        return length;
     }
 
     private ushort ReadU16()
