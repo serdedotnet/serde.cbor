@@ -355,7 +355,7 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         where T : class
     {
         var b = PeekByteOrThrow();
-        if (b == 0xc0)
+        if (b == 0xf6)
         {
             _reader.Advance(1);
             return null;
