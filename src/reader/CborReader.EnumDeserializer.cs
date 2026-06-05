@@ -33,11 +33,19 @@ partial class CborReader<TReader>
             throw new NotImplementedException();
         }
 
-        public int TryReadIndex(ISerdeInfo info, out string? errorName)
+        public int TryReadIndex(ISerdeInfo info)
         {
             // Enums are serialized as the index of the enum member
-            errorName = null;
             return reader.ReadI32();
         }
+
+        public (int, string?) TryReadIndexWithName(ISerdeInfo info)
+        {
+            return (reader.ReadI32(), null);
+        }
+
+        public UInt128 ReadU128(ISerdeInfo info, int index) => reader.ReadU128();
+        public Int128 ReadI128(ISerdeInfo info, int index) => reader.ReadI128();
+        public DateTimeOffset ReadDateTimeOffset(ISerdeInfo info, int index) => reader.ReadDateTimeOffset();
     }
 }

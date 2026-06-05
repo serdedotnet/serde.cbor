@@ -41,5 +41,9 @@ partial class CborWriter
             => writer.WriteDateTime(dateTime);
         public void WriteBytes(ISerdeInfo typeInfo, int index, ReadOnlyMemory<byte> bytes)
             => writer.WriteBytes(bytes);
+        public void WriteU128(ISerdeInfo typeInfo, int index, UInt128 u128)
+            => writer.WriteU128(u128);
+        public void WriteI128(ISerdeInfo typeInfo, int index, Int128 i128)
+            => writer.WriteI128(i128);
     }
 }

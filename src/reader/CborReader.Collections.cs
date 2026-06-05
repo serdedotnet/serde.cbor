@@ -112,14 +112,43 @@ partial class CborReader<TReader>
             return v;
         }
 
-        int ITypeDeserializer.TryReadIndex(ISerdeInfo info, out string? errorName)
+        int ITypeDeserializer.TryReadIndex(ISerdeInfo info)
         {
-            errorName = null;
             if (_index >= length)
             {
                 return ITypeDeserializer.EndOfType;
             }
             return _index;
+        }
+
+        (int, string?) ITypeDeserializer.TryReadIndexWithName(ISerdeInfo info)
+        {
+            if (_index >= length)
+            {
+                return (ITypeDeserializer.EndOfType, null);
+            }
+            return (_index, null);
+        }
+
+        UInt128 ITypeDeserializer.ReadU128(ISerdeInfo info, int index)
+        {
+            var v = deserializer.ReadU128();
+            _index++;
+            return v;
+        }
+
+        Int128 ITypeDeserializer.ReadI128(ISerdeInfo info, int index)
+        {
+            var v = deserializer.ReadI128();
+            _index++;
+            return v;
+        }
+
+        DateTimeOffset ITypeDeserializer.ReadDateTimeOffset(ISerdeInfo info, int index)
+        {
+            var v = deserializer.ReadDateTimeOffset();
+            _index++;
+            return v;
         }
 
         T ITypeDeserializer.ReadValue<T>(ISerdeInfo info, int index, IDeserialize<T> d)

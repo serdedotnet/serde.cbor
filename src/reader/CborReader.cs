@@ -387,6 +387,21 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         return DateTime.Parse(ReadString(), styles: DateTimeStyles.RoundtripKind);
     }
 
+    public DateTimeOffset ReadDateTimeOffset()
+    {
+        return DateTimeOffset.Parse(ReadString(), styles: DateTimeStyles.RoundtripKind);
+    }
+
+    public UInt128 ReadU128()
+    {
+        throw new NotImplementedException("128-bit integers are not yet supported in CBOR serialization.");
+    }
+
+    public Int128 ReadI128()
+    {
+        throw new NotImplementedException("128-bit integers are not yet supported in CBOR serialization.");
+    }
+
     public void ReadBytes(IBufferWriter<byte> writer)
     {
         var b = EatByteOrThrow();

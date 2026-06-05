@@ -129,4 +129,16 @@ partial class CborWriter : ITypeSerializer
         WritePropertyName(typeInfo, index);
         WriteBytes(bytes);
     }
+
+    void ITypeSerializer.WriteU128(ISerdeInfo typeInfo, int index, UInt128 u128)
+    {
+        WritePropertyName(typeInfo, index);
+        WriteU128(u128);
+    }
+
+    void ITypeSerializer.WriteI128(ISerdeInfo typeInfo, int index, Int128 i128)
+    {
+        WritePropertyName(typeInfo, index);
+        WriteI128(i128);
+    }
 }

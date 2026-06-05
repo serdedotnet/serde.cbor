@@ -82,9 +82,10 @@ public partial class SerializeOracleTests
     [Fact]
     public void TestByteEnum()
     {
-        AssertCborEqual(ByteEnum.A, ByteEnumProxy.Instance, [ 0x00 ]);
-        AssertCborEqual(ByteEnum.B, ByteEnumProxy.Instance, [ 0x01 ]);
-        AssertCborEqual(ByteEnum.C, ByteEnumProxy.Instance, [ 0x02 ]);
+        var proxy = new ByteEnumProxy();
+        AssertCborEqual(ByteEnum.A, proxy, [ 0x00 ]);
+        AssertCborEqual(ByteEnum.B, proxy, [ 0x01 ]);
+        AssertCborEqual(ByteEnum.C, proxy, [ 0x02 ]);
     }
 
     [GenerateSerialize]
@@ -96,9 +97,10 @@ public partial class SerializeOracleTests
     [Fact]
     public void TestIntEnum()
     {
-        AssertCborEqual(IntEnum.A, IntEnumProxy.Instance, [ 0x00 ]);
-        AssertCborEqual(IntEnum.B, IntEnumProxy.Instance, [ 0x01 ]);
-        AssertCborEqual(IntEnum.C, IntEnumProxy.Instance, [ 0x02 ]);
+        var proxy = new IntEnumProxy();
+        AssertCborEqual(IntEnum.A, proxy, [ 0x00 ]);
+        AssertCborEqual(IntEnum.B, proxy, [ 0x01 ]);
+        AssertCborEqual(IntEnum.C, proxy, [ 0x02 ]);
     }
 
     [GenerateSerialize]

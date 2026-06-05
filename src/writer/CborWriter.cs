@@ -93,6 +93,16 @@ internal sealed partial class CborWriter : ISerializer
         throw new NotImplementedException();
     }
 
+    public void WriteU128(UInt128 u128)
+    {
+        throw new NotImplementedException("128-bit integers are not yet supported in CBOR serialization.");
+    }
+
+    public void WriteI128(Int128 i128)
+    {
+        throw new NotImplementedException("128-bit integers are not yet supported in CBOR serialization.");
+    }
+
     public void WriteF64(double d)
     {
         _out.Add(0xfb);
