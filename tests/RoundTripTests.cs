@@ -4,6 +4,13 @@ namespace Serde.Cbor.Tests;
 public partial class RoundTripTests
 {
     [Fact]
+    public void TestBool()
+    {
+        AssertRoundTrip(true, BoolProxy.Instance);
+        AssertRoundTrip(false, BoolProxy.Instance);
+    }
+
+    [Fact]
     public void TestChar()
     {
         AssertRoundTrip('c', CharProxy.Instance);
@@ -31,7 +38,30 @@ public partial class RoundTripTests
     [Fact]
     public void TestNegativeByteSizedInt()
     {
+        AssertRoundTrip(-1, I32Proxy.Instance);
+        AssertRoundTrip(-24, I32Proxy.Instance);
+        AssertRoundTrip(-25, I32Proxy.Instance);
         AssertRoundTrip(-42, I32Proxy.Instance);
+        AssertRoundTrip(-128, I32Proxy.Instance);
+        AssertRoundTrip(-129, I32Proxy.Instance);
+        AssertRoundTrip(-256, I32Proxy.Instance);
+        AssertRoundTrip(-257, I32Proxy.Instance);
+    }
+
+    [Fact]
+    public void TestI64Boundaries()
+    {
+        AssertRoundTrip(long.MinValue, I64Proxy.Instance);
+        AssertRoundTrip(long.MaxValue, I64Proxy.Instance);
+        AssertRoundTrip((long)int.MaxValue + 1, I64Proxy.Instance);
+        AssertRoundTrip((long)int.MinValue - 1, I64Proxy.Instance);
+    }
+
+    [Fact]
+    public void TestU64Boundaries()
+    {
+        AssertRoundTrip(ulong.MaxValue, U64Proxy.Instance);
+        AssertRoundTrip((ulong)uint.MaxValue + 1, U64Proxy.Instance);
     }
 
     [Fact]

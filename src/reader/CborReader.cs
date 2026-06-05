@@ -37,15 +37,15 @@ internal sealed partial class CborReader<TReader> : IDeserializer
     private bool ReadBool()
     {
         var b = EatByteOrThrow();
-        if (b == 0xc2)
+        if (b == 0xf4)
         {
             return false;
         }
-        if (b == 0xc3)
+        if (b == 0xf5)
         {
             return true;
         }
-        throw new Exception($"Expected boolean, got 0x{b:x}");
+        throw new DeserializeException($"Expected boolean (0xf4/0xf5), got 0x{b:x}");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -76,38 +76,34 @@ internal sealed partial class CborReader<TReader> : IDeserializer
     }
 
     /// <summary>
-    /// Eats at least one byte from the buffer.
+    /// Decodes the CBOR additional info value from an initial byte.
+    /// The initial byte has already been consumed; this reads 0-8 more bytes as needed.
     /// </summary>
-    bool TryReadU8(out byte result)
+    private ulong ReadCborAdditionalInfo(byte initialByte)
     {
-        return TryReadByte(EatByteOrThrow(), out result);
-    }
-
-    bool TryReadByte(byte b, out byte result)
-    {
-        if (b <= 0x17)
+        var additional = initialByte & 0x1f;
+        return additional switch
         {
-            result = b;
-            return true;
-        }
-        if (b == 0x18)
-        {
-            result = EatByteOrThrow();
-            return true;
-        }
-        result = b;
-        return false;
+            <= 23 => (ulong)additional,
+            24 => EatByteOrThrow(),
+            25 => ReadBigEndianU16(),
+            26 => ReadBigEndianU32(),
+            27 => ReadBigEndianU64(),
+            _ => throw new DeserializeException($"Invalid CBOR additional info: {additional}")
+        };
     }
 
     byte IDeserializer.ReadU8() => ReadU8();
 
     private byte ReadU8()
     {
-        if (!TryReadU8(out var b))
-        {
-            throw new Exception($"Expected byte 0xcc, got 0x{b:x}");
-        }
-        return b;
+        var b = EatByteOrThrow();
+        if ((b >> 5) != 0)
+            throw new DeserializeException($"Expected unsigned integer (major type 0), got 0x{b:x}");
+        var val = ReadCborAdditionalInfo(b);
+        if (val > byte.MaxValue)
+            throw new DeserializeException($"Value {val} out of range for byte");
+        return (byte)val;
     }
 
     public char ReadChar()
@@ -121,53 +117,27 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         var b = EatByteOrThrow();
         if (typeInfo.Kind == InfoKind.List)
         {
-            int length;
-            if (b <= 0x9f)
-            {
-                length = b & 0xf;
-            }
-            else if (b == 0xdc)
-            {
-                length = ReadBigEndianU16();
-            }
-            else if (b == 0xdd)
-            {
-                length = (int)ReadBigEndianU32();
-            }
-            else
-            {
-                throw new Exception($"Expected array, got 0x{b:x}");
-            }
+            // CBOR major type 4: array
+            if ((b >> 5) != 4)
+                throw new DeserializeException($"Expected array (major type 4), got 0x{b:x}");
+            if (b == 0x9f)
+                throw new DeserializeException("Indefinite-length arrays are not supported");
+            int length = checked((int)ReadCborAdditionalInfo(b));
             return new DeserializeCollection(this, false, length);
         }
         else if (typeInfo.Kind == InfoKind.Dictionary)
         {
-            int length;
-            if (b is >= 0xa0 and  <= 0xb7)
-            {
-                length = b - 0xa0;
-            }
-            else if (b == 0xb8)
-            {
-                length = EatByteOrThrow();
-            }
-            else if (b == 0xb9)
-            {
-                length = ReadBigEndianU16();
-            }
-            else if (b == 0xdf)
-            {
-                length = (int)ReadBigEndianU32();
-            }
-            else
-            {
-                throw new Exception($"Expected dictionary, got 0x{b:x}");
-            }
-            return new DeserializeCollection(this, true, length*2);
+            // CBOR major type 5: map
+            if ((b >> 5) != 5)
+                throw new DeserializeException($"Expected map (major type 5), got 0x{b:x}");
+            if (b == 0xbf)
+                throw new DeserializeException("Indefinite-length maps are not supported");
+            int length = checked((int)ReadCborAdditionalInfo(b));
+            return new DeserializeCollection(this, true, length * 2);
         }
         else
         {
-            throw new Exception("Expected either List or Dictionary, found " + typeInfo.Kind);
+            throw new DeserializeException("Expected either List or Dictionary, found " + typeInfo.Kind);
         }
     }
 
@@ -181,7 +151,7 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         var span = _reader.Span;
         if (span.Length < 9)
         {
-            span = RefillNoEof(0);
+            span = RefillNoEof(9);
         }
         var b = span[0];
         if (b != 0xfb)
@@ -213,141 +183,51 @@ internal sealed partial class CborReader<TReader> : IDeserializer
     }
     float IDeserializer.ReadF32() => ReadF32();
 
-    private bool TryReadI8(out sbyte s)
+    /// <summary>
+    /// Reads a CBOR integer (major type 0 or 1) and returns the signed value.
+    /// Major type 0: positive, value = additional info.
+    /// Major type 1: negative, value = -1 - additional info.
+    /// </summary>
+    private long ReadCborSignedInteger()
     {
-        var first = EatByteOrThrow();
-        if (first is (>= 0 and <= 0x17) or (>= 0x20 and <= 0x37))
+        var b = EatByteOrThrow();
+        var majorType = b >> 5;
+        if (majorType == 0)
         {
-            s = (sbyte)first;
-            return true;
+            var val = ReadCborAdditionalInfo(b);
+            if (val > (ulong)long.MaxValue)
+                throw new DeserializeException($"Unsigned value {val} too large for Int64");
+            return (long)val;
         }
-        if (first == 0x38)
+        if (majorType == 1)
         {
-            s = (sbyte)EatByteOrThrow();
-            return true;
+            var n = ReadCborAdditionalInfo(b);
+            if (n > (ulong)long.MaxValue)
+                throw new DeserializeException($"Negative value too large for Int64");
+            return -1 - (long)n;
         }
-        s = (sbyte)first;
-        return false;
-    }
-
-    private bool TryReadI16(out short i16)
-    {
-        if (TryReadI8(out var sb))
-        {
-            i16 = sb;
-            return true;
-        }
-        if (TryReadByte((byte)sb, out var b))
-        {
-            i16 = b;
-            return true;
-        }
-        if (b == 0x19)
-        {
-            var u16 = ReadBigEndianU16();
-            if (u16 > short.MaxValue)
-            {
-                throw new DeserializeException($"Expected Int16, got {u16}");
-            }
-            i16 = unchecked((short)u16);
-            return true;
-        }
-        if (b == 0x39)
-        {
-            i16 = unchecked((short)ReadBigEndianU16());
-            if (i16 > 0)
-            {
-                throw new DeserializeException($"Expected negative Int16, got {i16}");
-            }
-            return true;
-        }
-        i16 = b;
-        return false;
+        throw new DeserializeException($"Expected integer (major type 0 or 1), got 0x{b:x}");
     }
 
     public short ReadI16()
     {
-        if (!TryReadI16(out var i16))
-        {
-            throw new Exception("Expected 16-bit integer");
-        }
-        return i16;
-    }
-
-    private bool TryReadI32(out int i32)
-    {
-        if (TryReadI16(out var i16))
-        {
-            i32 = i16;
-            return true;
-        }
-        switch (i16)
-        {
-            default:
-                i32 = i16;
-                return false;
-
-            case 0x19:
-                i32 = ReadBigEndianU16();
-                return true;
-            case 0x1a: // four byte uint32
-                var u32 = ReadBigEndianU32();
-                if (u32 > int.MaxValue)
-                {
-                    throw new DeserializeException($"Expected Int32, got {u32}");
-                }
-                i32 = unchecked((int)u32);
-                return true;
-            case 0x3a: // four byte negative int32
-                i32 = unchecked((int)ReadBigEndianU32());
-                if (i32 > 0)
-                {
-                    throw new DeserializeException($"Expected negative Int32, got {i32}");
-                }
-                return true;
-        }
+        var val = ReadCborSignedInteger();
+        if (val < short.MinValue || val > short.MaxValue)
+            throw new DeserializeException($"Value {val} out of range for Int16");
+        return (short)val;
     }
 
     private int ReadI32()
     {
-        if (!TryReadI32(out var i32))
-        {
-            throw new Exception($"Expected 32-bit integer, found 0x{i32:x}");
-        }
-        return i32;
+        var val = ReadCborSignedInteger();
+        if (val < int.MinValue || val > int.MaxValue)
+            throw new DeserializeException($"Value {val} out of range for Int32");
+        return (int)val;
     }
 
     int IDeserializer.ReadI32() => ReadI32();
 
-    private bool TryReadI64(out long i64)
-    {
-        if (TryReadI32(out var i32))
-        {
-            i64 = i32;
-            return true;
-        }
-        if (i32 == 0x1a)
-        {
-            i64 = ReadBigEndianU32();
-            return true;
-        }
-        if (i32 == 0x1b)
-        {
-            i64 = (long)ReadBigEndianU64();
-            return true;
-        }
-        i64 = i32;
-        return false;
-    }
-
-    private long ReadI64()
-    {
-        if (!TryReadI64(out var i64))
-        {
-            throw new Exception("Expected 64-bit integer");
-        }
-        return i64;
-    }
+    private long ReadI64() => ReadCborSignedInteger();
 
     long IDeserializer.ReadI64() => ReadI64();
 
@@ -365,11 +245,10 @@ internal sealed partial class CborReader<TReader> : IDeserializer
 
     public sbyte ReadI8()
     {
-        if (!TryReadI8(out var sb))
-        {
-            throw new Exception("Expected signed byte");
-        }
-        return sb;
+        var val = ReadCborSignedInteger();
+        if (val < sbyte.MinValue || val > sbyte.MaxValue)
+            throw new DeserializeException($"Value {val} out of range for sbyte");
+        return (sbyte)val;
     }
 
     string IDeserializer.ReadString() => ReadString();
@@ -509,84 +388,36 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         return length;
     }
 
+    /// <summary>
+    /// Reads a CBOR unsigned integer (major type 0).
+    /// </summary>
+    private ulong ReadCborUnsigned()
+    {
+        var b = EatByteOrThrow();
+        if ((b >> 5) != 0)
+            throw new DeserializeException($"Expected unsigned integer (major type 0), got 0x{b:x}");
+        return ReadCborAdditionalInfo(b);
+    }
+
     private ushort ReadU16()
     {
-        if (TryReadU16(out var u16))
-        {
-            return u16;
-        }
-        throw new Exception($"Expected 16-bit positive integer, got 0x{u16:x}");
+        var val = ReadCborUnsigned();
+        if (val > ushort.MaxValue)
+            throw new DeserializeException($"Value {val} out of range for UInt16");
+        return (ushort)val;
     }
 
     ushort IDeserializer.ReadU16() => ReadU16();
 
-    private bool TryReadU16(out ushort u16)
-    {
-        if (TryReadU8(out var b))
-        {
-            u16 = b;
-            return true;
-        }
-        if (b == 0x19)
-        {
-            u16 = ReadBigEndianU16();
-            return true;
-        }
-        u16 = b;
-        return false;
-    }
-
-    private bool TryReadU32(out uint u32)
-    {
-        if (TryReadU16(out var u16))
-        {
-            u32 = u16;
-            return true;
-        }
-        // u16 contains the first unexpected byte
-        if (u16 == 0xce)
-        {
-            u32 = ReadBigEndianU32();
-            return true;
-        }
-        u32 = u16;
-        return false;
-    }
-
-    private bool TryReadU64(out ulong u64)
-    {
-        if (TryReadU32(out var u32))
-        {
-            u64 = u32;
-            return true;
-        }
-        // u32 contains the first unexpected byte
-        if (u32 == 0xcf)
-        {
-            u64 = ReadBigEndianU64();
-            return true;
-        }
-        u64 = u32;
-        return false;
-    }
-
     public uint ReadU32()
     {
-        if (!TryReadU32(out var u32))
-        {
-            throw new Exception($"Expected integer, got 0x{u32:x}");
-        }
-        return u32;
+        var val = ReadCborUnsigned();
+        if (val > uint.MaxValue)
+            throw new DeserializeException($"Value {val} out of range for UInt32");
+        return (uint)val;
     }
 
-    public ulong ReadU64()
-    {
-        if (!TryReadU64(out var u64))
-        {
-            throw new Exception($"Expected integer, got 0x{u64:x}");
-        }
-        return u64;
-    }
+    public ulong ReadU64() => ReadCborUnsigned();
 
     private ushort ReadBigEndianU16()
     {
