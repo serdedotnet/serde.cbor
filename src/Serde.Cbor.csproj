@@ -5,10 +5,21 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageVersion>0.1.0-preview1</PackageVersion>
+    <Description>CBOR (RFC 8949) serialization and deserialization for .NET, built on the Serde framework.</Description>
+    <Authors>serdedotnet</Authors>
+    <PackageProjectUrl>https://github.com/serdedotnet/serde.cbor</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/serdedotnet/serde.cbor</RepositoryUrl>
+    <PackageTags>cbor;serde;serialization</PackageTags>
+    <PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Serde" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

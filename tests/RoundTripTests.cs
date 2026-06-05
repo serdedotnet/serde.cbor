@@ -168,6 +168,63 @@ public partial class RoundTripTests
     }
 
     [Fact]
+    public void TestArrayWith16Elements()
+    {
+        // Exercises arrays with >15 elements (multi-byte length path 0x98)
+        var arr = Enumerable.Range(0, 16).ToArray();
+        AssertRoundTrip<
+            int[],
+            ArrayProxy.Ser<int, I32Proxy>,
+            ArrayProxy.De<int, I32Proxy>>(arr);
+    }
+
+    [Fact]
+    public void TestArrayWith25Elements()
+    {
+        // Exercises arrays with >23 elements (multi-byte length path 0x98)
+        var arr = Enumerable.Range(0, 25).ToArray();
+        AssertRoundTrip<
+            int[],
+            ArrayProxy.Ser<int, I32Proxy>,
+            ArrayProxy.De<int, I32Proxy>>(arr);
+    }
+
+    [Fact]
+    public void TestArrayWith300Elements()
+    {
+        // Exercises 16-bit array length path (0x99)
+        var arr = Enumerable.Range(0, 300).ToArray();
+        AssertRoundTrip<
+            int[],
+            ArrayProxy.Ser<int, I32Proxy>,
+            ArrayProxy.De<int, I32Proxy>>(arr);
+    }
+
+    [Fact]
+    public void TestU32LargeValues()
+    {
+        // Exercises the 4-byte unsigned integer path
+        AssertRoundTrip(100000u, U32Proxy.Instance);
+        AssertRoundTrip(uint.MaxValue, U32Proxy.Instance);
+    }
+
+    [Fact]
+    public void TestU64LargeValues()
+    {
+        // Exercises the 8-byte unsigned integer path
+        AssertRoundTrip((ulong)uint.MaxValue + 1, U64Proxy.Instance);
+        AssertRoundTrip(ulong.MaxValue, U64Proxy.Instance);
+    }
+
+    [Fact]
+    public void TestNegativeI64Values()
+    {
+        // Exercises the 8-byte negative integer path
+        AssertRoundTrip(long.MinValue, I64Proxy.Instance);
+        AssertRoundTrip((long)int.MinValue - 1, I64Proxy.Instance);
+    }
+
+    [Fact]
     public void TestDictionary()
     {
         AssertRoundTrip<
