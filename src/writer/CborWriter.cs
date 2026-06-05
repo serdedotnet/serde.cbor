@@ -127,29 +127,34 @@ internal sealed partial class CborWriter : ISerializer
         {
             WriteU64((ulong)i64);
         }
-        else if (i64 >= -0x17)
-        {
-            _out.Add(unchecked((byte)i64));
-        }
-        else if (i64 >= sbyte.MinValue)
-        {
-            _out.Add(0x38);
-            _out.Add(unchecked((byte)i64));
-        }
-        else if (i64 >= short.MinValue)
-        {
-            _out.Add(0x39);
-            WriteBigEndian(unchecked((short)i64));
-        }
-        else if (i64 >= int.MinValue)
-        {
-            _out.Add(0x3a);
-            WriteBigEndian(unchecked((int)i64));
-        }
         else
         {
-            _out.Add(0x3b);
-            WriteBigEndian(i64);
+            // CBOR major type 1: negative value is encoded as -1 - n
+            ulong n = (ulong)(-1 - i64);
+            if (n <= 0x17)
+            {
+                _out.Add((byte)(0x20 + n));
+            }
+            else if (n <= byte.MaxValue)
+            {
+                _out.Add(0x38);
+                _out.Add((byte)n);
+            }
+            else if (n <= ushort.MaxValue)
+            {
+                _out.Add(0x39);
+                WriteBigEndian((ushort)n);
+            }
+            else if (n <= uint.MaxValue)
+            {
+                _out.Add(0x3a);
+                WriteBigEndian((uint)n);
+            }
+            else
+            {
+                _out.Add(0x3b);
+                WriteBigEndian(n);
+            }
         }
     }
     public void WriteNull()

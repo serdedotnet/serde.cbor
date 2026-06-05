@@ -2,7 +2,7 @@
 namespace Serde.Cbor.Tests;
 
 /// <summary>
-/// Compares the output of the MsgPackSerializer with the output of the MessagePackSerializer.
+/// Verifies that the CborSerializer produces correct CBOR byte sequences.
 /// </summary>
 public partial class SerializeOracleTests
 {
@@ -13,48 +13,74 @@ public partial class SerializeOracleTests
         AssertCborEqual(false, BoolProxy.Instance, [ 0xf4 ]);
     }
 
-    //[Fact]
-    //public void TestByte()
-    //{
-    //    AssertCborEqual((byte)42, U8Proxy.Instance);
-    //    AssertCborEqual((byte)0xf0, U8Proxy.Instance);
-    //}
+    [Fact]
+    public void TestByte()
+    {
+        AssertCborEqual((byte)0, U8Proxy.Instance, [ 0x00 ]);
+        AssertCborEqual((byte)23, U8Proxy.Instance, [ 0x17 ]);
+        AssertCborEqual((byte)24, U8Proxy.Instance, [ 0x18, 0x18 ]);
+        AssertCborEqual((byte)42, U8Proxy.Instance, [ 0x18, 0x2a ]);
+        AssertCborEqual((byte)0xff, U8Proxy.Instance, [ 0x18, 0xff ]);
+    }
 
-    //[Fact]
-    //public void TestChar()
-    //{
-    //    AssertCborEqual('c', CharProxy.Instance);
-    //}
+    [Fact]
+    public void TestChar()
+    {
+        // char is encoded as a UTF-8 string
+        AssertCborEqual('c', CharProxy.Instance, [ 0x61, 0x63 ]);
+    }
 
-    //[Fact]
-    //public void TestByteSizedUInt()
-    //{
-    //    AssertCborEqual(42u, U32Proxy.Instance);
-    //}
+    [Fact]
+    public void TestByteSizedUInt()
+    {
+        AssertCborEqual(42u, U32Proxy.Instance, [ 0x18, 0x2a ]);
+    }
 
-    //[Fact]
-    //public void TestPositiveByteSizedInt()
-    //{
-    //    AssertCborEqual(42, I32Proxy.Instance);
-    //}
+    [Fact]
+    public void TestPositiveByteSizedInt()
+    {
+        AssertCborEqual(0, I32Proxy.Instance, [ 0x00 ]);
+        AssertCborEqual(23, I32Proxy.Instance, [ 0x17 ]);
+        AssertCborEqual(24, I32Proxy.Instance, [ 0x18, 0x18 ]);
+        AssertCborEqual(42, I32Proxy.Instance, [ 0x18, 0x2a ]);
+        AssertCborEqual(255, I32Proxy.Instance, [ 0x18, 0xff ]);
+        AssertCborEqual(256, I32Proxy.Instance, [ 0x19, 0x01, 0x00 ]);
+    }
 
-    //[Fact]
-    //public void TestNegativeByteSizedInt()
-    //{
-    //    AssertCborEqual(-42, I32Proxy.Instance);
-    //}
+    [Fact]
+    public void TestNegativeByteSizedInt()
+    {
+        // CBOR negative: -1 is 0x20, -24 is 0x37, -25 is 0x38 0x18
+        AssertCborEqual(-1, I32Proxy.Instance, [ 0x20 ]);
+        AssertCborEqual(-24, I32Proxy.Instance, [ 0x37 ]);
+        AssertCborEqual(-25, I32Proxy.Instance, [ 0x38, 0x18 ]);
+        AssertCborEqual(-42, I32Proxy.Instance, [ 0x38, 0x29 ]);
+        AssertCborEqual(-128, I32Proxy.Instance, [ 0x38, 0x7f ]);
+        AssertCborEqual(-129, I32Proxy.Instance, [ 0x38, 0x80 ]);
+        AssertCborEqual(-256, I32Proxy.Instance, [ 0x38, 0xff ]);
+        AssertCborEqual(-257, I32Proxy.Instance, [ 0x39, 0x01, 0x00 ]);
+    }
 
-    //[Fact]
-    //public void TestPositiveUInt16()
-    //{
-    //    AssertCborEqual((ushort)0x1000, U16Proxy.Instance);
-    //}
+    [Fact]
+    public void TestPositiveUInt16()
+    {
+        AssertCborEqual((ushort)0x1000, U16Proxy.Instance, [ 0x19, 0x10, 0x00 ]);
+    }
 
-    //[Fact]
-    //public void TestNegativeInt16()
-    //{
-    //    AssertCborEqual((short)-0x1000, I16Proxy.Instance);
-    //}
+    [Fact]
+    public void TestNegativeInt16()
+    {
+        // -0x1000 = -4096 = -1 - 4095, wire value 4095 = 0x0FFF
+        AssertCborEqual((short)-0x1000, I16Proxy.Instance, [ 0x39, 0x0f, 0xff ]);
+    }
+
+    [Fact]
+    public void TestI64Boundaries()
+    {
+        AssertCborEqual(long.MinValue, I64Proxy.Instance, [
+            0x3b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+        ]);
+    }
 
     [Fact]
     public void TestString()
