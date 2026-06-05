@@ -1,13 +1,14 @@
-
 name: publish
 on:
-  push:
-    branches: [ release ]
   release:
-    types: [ published ]
+    types: [ released ]
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
-  pack:
+  publish:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,5 +19,9 @@ jobs:
         dotnet-version: 10.0.*
     - name: Pack
       run: dotnet pack -c Release
+    - name: NuGet login (OIDC)
+      uses: NuGet/login@v1
+      with:
+        user: ${{ secrets.NUGET_USER }}
     - name: Publish package
-      run: dotnet nuget push --skip-duplicate -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json artifacts/package/release/*.nupkg
+      run: dotnet nuget push --skip-duplicate --source https://api.nuget.org/v3/index.json artifacts/package/release/*.nupkg
