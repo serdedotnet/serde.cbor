@@ -263,12 +263,79 @@ internal sealed partial class CborReader<TReader> : IDeserializer
 
     public DateTime ReadDateTime()
     {
-        return DateTime.Parse(ReadString(), styles: DateTimeStyles.RoundtripKind);
+        // Read as DateTimeOffset, then return UTC DateTime
+        return ReadDateTimeOffset().UtcDateTime;
     }
 
     public DateTimeOffset ReadDateTimeOffset()
     {
-        return DateTimeOffset.Parse(ReadString(), styles: DateTimeStyles.RoundtripKind);
+        var b = PeekByteOrThrow();
+        var majorType = b >> 5;
+        if (majorType != 6)
+            throw new DeserializeException($"Expected tag (major type 6) for DateTimeOffset, got 0x{b:x}");
+
+        EatByteOrThrow();
+        var tag = ReadCborAdditionalInfo(b);
+
+        if (tag == 0)
+        {
+            // Tag 0: RFC 3339 date/time string
+            var s = ReadString();
+            return DateTimeOffset.Parse(s,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind);
+        }
+        else if (tag == 1)
+        {
+            // Tag 1: epoch-based date/time (integer or float seconds)
+            var next = PeekByteOrThrow();
+            var nextMajor = next >> 5;
+
+            if (nextMajor == 0)
+            {
+                // Unsigned integer seconds
+                var seconds = (long)ReadCborUnsigned();
+                return DateTimeOffset.FromUnixTimeSeconds(seconds);
+            }
+            else if (nextMajor == 1)
+            {
+                // Negative integer seconds
+                var val = ReadCborSignedInteger();
+                return DateTimeOffset.FromUnixTimeSeconds(val);
+            }
+            else if (next == 0xfb)
+            {
+                // Double-precision float seconds
+                var seconds = ReadF64();
+                if (double.IsNaN(seconds) || double.IsInfinity(seconds))
+                    throw new DeserializeException("Tag 1 date/time cannot be NaN or Infinity");
+                long wholeSec = (long)Math.Truncate(seconds);
+                double frac = seconds - wholeSec;
+                long ticks = DateTimeOffset.FromUnixTimeSeconds(wholeSec).Ticks
+                    + (long)Math.Round(frac * TimeSpan.TicksPerSecond);
+                return new DateTimeOffset(ticks, TimeSpan.Zero);
+            }
+            else if (next == 0xfa)
+            {
+                // Single-precision float seconds
+                var seconds = (double)ReadF32();
+                if (double.IsNaN(seconds) || double.IsInfinity(seconds))
+                    throw new DeserializeException("Tag 1 date/time cannot be NaN or Infinity");
+                long wholeSec = (long)Math.Truncate(seconds);
+                double frac = seconds - wholeSec;
+                long ticks = DateTimeOffset.FromUnixTimeSeconds(wholeSec).Ticks
+                    + (long)Math.Round(frac * TimeSpan.TicksPerSecond);
+                return new DateTimeOffset(ticks, TimeSpan.Zero);
+            }
+            else
+            {
+                throw new DeserializeException($"Tag 1 expects integer or float, got 0x{next:x}");
+            }
+        }
+        else
+        {
+            throw new DeserializeException($"Expected tag 0 or 1 for DateTimeOffset, got tag {tag}");
+        }
     }
 
     public UInt128 ReadU128()
