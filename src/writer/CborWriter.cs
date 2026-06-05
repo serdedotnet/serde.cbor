@@ -164,12 +164,67 @@ internal sealed partial class CborWriter : ISerializer
 
     public void WriteDateTimeOffset(DateTimeOffset dt)
     {
-        WriteString(dt.ToString("O"));
+        WriteTag(0);
+        WriteString(FormatRfc3339(dt));
+    }
+
+    /// <summary>
+    /// Formats a DateTimeOffset as RFC 3339 with minimal fractional seconds
+    /// and 'Z' for UTC, matching CBOR tag 0 conventions.
+    /// </summary>
+    private static string FormatRfc3339(DateTimeOffset dt)
+    {
+        if (dt.Offset == TimeSpan.Zero)
+        {
+            return dt.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
+                System.Globalization.CultureInfo.InvariantCulture);
+        }
+        return dt.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFFzzz",
+            System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Writes a CBOR tag (major type 6).
+    /// </summary>
+    private void WriteTag(ulong tag)
+    {
+        // Major type 6 = 0xc0 base, same additional-info encoding as unsigned integers
+        if (tag <= 0x17)
+        {
+            _out.Add((byte)(0xc0 + tag));
+        }
+        else if (tag <= 0xff)
+        {
+            _out.Add(0xd8);
+            _out.Add((byte)tag);
+        }
+        else if (tag <= 0xffff)
+        {
+            _out.Add(0xd9);
+            WriteBigEndian((ushort)tag);
+        }
+        else if (tag <= 0xffffffff)
+        {
+            _out.Add(0xda);
+            WriteBigEndian((uint)tag);
+        }
+        else
+        {
+            _out.Add(0xdb);
+            WriteBigEndian(tag);
+        }
     }
 
     public void WriteDateTime(DateTime dt)
     {
-        WriteString(dt.ToString("O"));
+        if (dt.Kind != DateTimeKind.Utc)
+            throw new ArgumentException(
+                $"Only DateTimeKind.Utc is supported for CBOR serialization. Got {dt.Kind}. " +
+                "Use DateTimeOffset for values with a specific offset, or call DateTime.ToUniversalTime().",
+                nameof(dt));
+        WriteTag(0);
+        WriteString(dt.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
+            System.Globalization.CultureInfo.InvariantCulture));
     }
 
     public void WriteBytes(ReadOnlyMemory<byte> bytes)
