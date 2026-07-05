@@ -234,13 +234,37 @@ internal sealed partial class CborReader<TReader> : IDeserializer
     T? IDeserializer.ReadNullableRef<T>(IDeserialize<T> proxy)
         where T : class
     {
+        if (((IDeserializer)this).TryReadNull())
+        {
+            return null;
+        }
+        return proxy.Deserialize(this);
+    }
+
+    bool IDeserializer.TryReadNull()
+    {
         var b = PeekByteOrThrow();
         if (b == 0xf6)
         {
             _reader.Advance(1);
-            return null;
+            return true;
         }
-        return proxy.Deserialize(this);
+        return false;
+    }
+
+    // Enums are encoded as a CBOR text string of the variant name. Read the name and map it
+    // back to the variant ordinal via the enum's SerdeInfo.
+    int IDeserializer.ReadEnum(ISerdeInfo info)
+    {
+        var span = ReadUtf8Span();
+        int index = info.TryGetIndex(span);
+        if (index == ITypeDeserializer.IndexNotFound)
+        {
+            throw new DeserializeException(
+                $"Unknown enum member '{Encoding.UTF8.GetString(span)}' for enum '{info.Name}'"
+            );
+        }
+        return index;
     }
 
     public sbyte ReadI8()
@@ -417,8 +441,6 @@ internal sealed partial class CborReader<TReader> : IDeserializer
             case InfoKind.List:
             case InfoKind.Dictionary:
                 return ReadCollection(typeInfo);
-            case InfoKind.Enum:
-                return new EnumDeserializer(this);
             case InfoKind.CustomType:
                 // Custom types are serialized as a map
                 int? length = ReadMapLength();

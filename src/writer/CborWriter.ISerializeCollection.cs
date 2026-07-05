@@ -5,6 +5,13 @@ partial class CborWriter
 {
     private sealed class SerCollection(CborWriter writer) : ITypeSerializer
     {
+        public ISerializer WriteFieldStart(ISerdeInfo typeInfo, int index) => writer;
+
+        public void WriteFieldEnd(ISerdeInfo typeInfo, int index, ISerializer serializer) { }
+
+        public void WriteEnum(ISerdeInfo typeInfo, int index, ISerdeInfo fieldInfo, int ordinal)
+            => writer.WriteEnum(fieldInfo, ordinal);
+
         public void End(ISerdeInfo typeInfo)
         {
             // No action needed, all collections are length-prefixed

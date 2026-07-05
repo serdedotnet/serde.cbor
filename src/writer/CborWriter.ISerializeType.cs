@@ -16,6 +16,23 @@ partial class CborWriter : ITypeSerializer
         // No end, all types are length-prefixed
     }
 
+    ISerializer ITypeSerializer.WriteFieldStart(ISerdeInfo typeInfo, int fieldIndex)
+    {
+        WritePropertyName(typeInfo, fieldIndex);
+        return this;
+    }
+
+    void ITypeSerializer.WriteFieldEnd(ISerdeInfo typeInfo, int fieldIndex, ISerializer serializer)
+    {
+        // No-op: all types are length-prefixed.
+    }
+
+    void ITypeSerializer.WriteEnum(ISerdeInfo typeInfo, int index, ISerdeInfo fieldInfo, int ordinal)
+    {
+        WritePropertyName(typeInfo, index);
+        WriteEnum(fieldInfo, ordinal);
+    }
+
     void ITypeSerializer.WriteValue<T>(ISerdeInfo typeInfo, int fieldIndex, T value, ISerialize<T> serialize)
     {
         WritePropertyName(typeInfo, fieldIndex);

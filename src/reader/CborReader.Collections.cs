@@ -158,6 +158,17 @@ partial class CborReader<TReader>
             return next;
         }
 
+        int ITypeDeserializer.ReadEnum(ISerdeInfo typeInfo, int index, ISerdeInfo fieldInfo)
+        {
+            var v = ((IDeserializer)deserializer).ReadEnum(fieldInfo);
+            _index++;
+            return v;
+        }
+
+        IDeserializer ITypeDeserializer.ReadFieldStart(ISerdeInfo info, int index) => deserializer;
+
+        void ITypeDeserializer.ReadFieldEnd(ISerdeInfo info, int index, IDeserializer deserializer) => _index++;
+
         void ITypeDeserializer.SkipValue(ISerdeInfo info, int index)
         {
             throw new NotImplementedException();

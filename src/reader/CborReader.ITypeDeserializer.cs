@@ -41,6 +41,13 @@ partial class CborReader<TReader>
         T ITypeDeserializer.ReadValue<T>(ISerdeInfo info, int index, IDeserialize<T> deserialize)
              => deserialize.Deserialize(deserializer);
 
+        int ITypeDeserializer.ReadEnum(ISerdeInfo typeInfo, int index, ISerdeInfo fieldInfo)
+            => ((IDeserializer)deserializer).ReadEnum(fieldInfo);
+
+        IDeserializer ITypeDeserializer.ReadFieldStart(ISerdeInfo info, int index) => deserializer;
+
+        void ITypeDeserializer.ReadFieldEnd(ISerdeInfo info, int index, IDeserializer deserializer) { }
+
         void ITypeDeserializer.SkipValue(ISerdeInfo info, int index)
             => throw new NotImplementedException();
 
@@ -56,10 +63,6 @@ partial class CborReader<TReader>
                 int index = map.TryGetIndex(span);
                 _count++;
                 return index;
-            }
-            else if (map.Kind == InfoKind.Enum)
-            {
-                return deserializer.ReadI32();
             }
             else
             {
@@ -81,13 +84,9 @@ partial class CborReader<TReader>
                 _count++;
                 return (index, errorName);
             }
-            else if (map.Kind == InfoKind.Enum)
-            {
-                return (deserializer.ReadI32(), null);
-            }
             else
             {
-                return (ITypeDeserializer.IndexNotFound, "Expected a custom type or enum, found: " + map.Kind);
+                return (ITypeDeserializer.IndexNotFound, "Expected a custom type, found: " + map.Kind);
             }
         }
 
