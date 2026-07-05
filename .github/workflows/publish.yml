@@ -1,7 +1,6 @@
 name: publish
 on:
-  release:
-    types: [ released ]
+  workflow_dispatch:
 
 permissions:
   id-token: write
