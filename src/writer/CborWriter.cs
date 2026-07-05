@@ -9,12 +9,10 @@ namespace Serde.Cbor;
 internal sealed partial class CborWriter : ISerializer
 {
     private readonly ScratchBuffer _out;
-    private readonly EnumSerializer _enumSerializer;
 
     public CborWriter(ScratchBuffer scratch)
     {
         _out = scratch;
-        _enumSerializer = new EnumSerializer(this);
     }
 
     public void WriteBool(bool b)
@@ -335,10 +333,15 @@ internal sealed partial class CborWriter : ISerializer
                 // Custom types are serialized as a map
                 WriteMapLength(typeInfo.FieldCount);
                 return this;
-            case InfoKind.Enum:
-                return _enumSerializer;
         }
         throw new InvalidOperationException("Unexpected info kind: " + typeInfo.Kind);
+    }
+
+    // Enums are serialized as a CBOR text string of the variant name (the field name at
+    // the given ordinal in the enum's SerdeInfo), matching serde's name-based enum model.
+    public void WriteEnum(ISerdeInfo info, int ordinal)
+    {
+        WriteUtf8(info.GetFieldName(ordinal));
     }
 
     public void WriteU16(ushort u16) => WriteU64(u16);

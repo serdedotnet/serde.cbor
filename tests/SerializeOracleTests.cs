@@ -108,10 +108,12 @@ public partial class SerializeOracleTests
     [Fact]
     public void TestByteEnum()
     {
+        // Enums are serialized as a CBOR text string of the variant name, emitted
+        // using serde's default member format (camelCase): A -> "a", etc.
         var proxy = new ByteEnumProxy();
-        AssertCborEqual(ByteEnum.A, proxy, [ 0x00 ]);
-        AssertCborEqual(ByteEnum.B, proxy, [ 0x01 ]);
-        AssertCborEqual(ByteEnum.C, proxy, [ 0x02 ]);
+        AssertCborEqual(ByteEnum.A, proxy, [ 0x61, (byte)'a' ]);
+        AssertCborEqual(ByteEnum.B, proxy, [ 0x61, (byte)'b' ]);
+        AssertCborEqual(ByteEnum.C, proxy, [ 0x61, (byte)'c' ]);
     }
 
     [GenerateSerialize]
@@ -124,9 +126,28 @@ public partial class SerializeOracleTests
     public void TestIntEnum()
     {
         var proxy = new IntEnumProxy();
-        AssertCborEqual(IntEnum.A, proxy, [ 0x00 ]);
-        AssertCborEqual(IntEnum.B, proxy, [ 0x01 ]);
-        AssertCborEqual(IntEnum.C, proxy, [ 0x02 ]);
+        AssertCborEqual(IntEnum.A, proxy, [ 0x61, (byte)'a' ]);
+        AssertCborEqual(IntEnum.B, proxy, [ 0x61, (byte)'b' ]);
+        AssertCborEqual(IntEnum.C, proxy, [ 0x61, (byte)'c' ]);
+    }
+
+    // With AsUnderlying = true, the enum is serialized as its underlying integral value
+    // via the normal primitive path rather than as a name string.
+    [GenerateSerialize(AsUnderlying = true)]
+    private enum AsByteEnum : byte
+    {
+        A = 1,
+        B = 2,
+        C = 3,
+    }
+
+    [Fact]
+    public void TestAsByteEnum()
+    {
+        var proxy = new AsByteEnumProxy();
+        AssertCborEqual(AsByteEnum.A, proxy, [ 0x01 ]);
+        AssertCborEqual(AsByteEnum.B, proxy, [ 0x02 ]);
+        AssertCborEqual(AsByteEnum.C, proxy, [ 0x03 ]);
     }
 
     [GenerateSerialize]

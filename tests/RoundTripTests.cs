@@ -127,6 +127,43 @@ public partial class RoundTripTests
         AssertRoundTrip(IntEnum.C, proxy);
     }
 
+    // Name-based encoding must round-trip regardless of the underlying values,
+    // since the wire form is the variant name rather than the numeric value.
+    [GenerateSerde]
+    private enum SparseEnum : byte
+    {
+        A = 2,
+        B = 3,
+        C = 255,
+    }
+
+    [Fact]
+    public void TestSparseEnum()
+    {
+        var proxy = new SparseEnumProxy();
+        AssertRoundTrip(SparseEnum.A, proxy);
+        AssertRoundTrip(SparseEnum.B, proxy);
+        AssertRoundTrip(SparseEnum.C, proxy);
+    }
+
+    // AsUnderlying enums round-trip through the numeric primitive path.
+    [GenerateSerde(AsUnderlying = true)]
+    private enum AsByteEnum : byte
+    {
+        A = 1,
+        B = 2,
+        C = 3,
+    }
+
+    [Fact]
+    public void TestAsByteEnum()
+    {
+        var proxy = new AsByteEnumProxy();
+        AssertRoundTrip(AsByteEnum.A, proxy);
+        AssertRoundTrip(AsByteEnum.B, proxy);
+        AssertRoundTrip(AsByteEnum.C, proxy);
+    }
+
     [GenerateSerde]
     [SerdeTypeOptions(MemberFormat = MemberFormat.None)]
     public partial record Point
