@@ -166,6 +166,27 @@ public partial class SerializeOracleTests
         ]);
     }
 
+    [GenerateSerialize]
+    [SerdeTypeOptions(MemberFormat = MemberFormat.None)]
+    public partial record WithNullable
+    {
+        public int X { get; init; }
+        public string? Name { get; init; }
+    }
+
+    // When a nullable member is null it is skipped, so the map header must encode one
+    // pair (0xa1), not the declared field count of two.
+    [Fact]
+    public void TestSkippedNullMemberHeaderCount()
+    {
+        AssertCborEqual(new WithNullable { X = 1, Name = null }, [
+            0xa1, 0x61, 0x58, 0x01
+        ]);
+        AssertCborEqual(new WithNullable { X = 1, Name = "hi" }, [
+            0xa2, 0x61, 0x58, 0x01, 0x64, 0x4e, 0x61, 0x6d, 0x65, 0x62, 0x68, 0x69
+        ]);
+    }
+
     [Fact]
     public void TestDouble()
     {
