@@ -7,13 +7,15 @@ partial class CborWriter : ITypeSerializer
 {
     private void WritePropertyName(ISerdeInfo typeInfo, int fieldIndex)
     {
+        IncrementMapCount();
         var fieldName = typeInfo.GetFieldName(fieldIndex);
         WriteUtf8(fieldName);
     }
 
     void ITypeSerializer.End(ISerdeInfo typeInfo)
     {
-        // No end, all types are length-prefixed
+        // All types are length-prefixed; backpatch the actual field count into the header.
+        EndMap();
     }
 
     ISerializer ITypeSerializer.WriteFieldStart(ISerdeInfo typeInfo, int fieldIndex)

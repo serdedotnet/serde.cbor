@@ -10,6 +10,20 @@ internal sealed partial class CborWriter : ISerializer
 {
     private readonly ScratchBuffer _out;
 
+    // Stack of in-progress custom-type map headers. Because the generated serializer
+    // may omit fields (e.g. WriteStringIfNotNull skips null members), the number of
+    // pairs actually written is not known when the header is emitted. We reserve a
+    // placeholder header, count the fields as they are written, and backpatch the real
+    // count in End. Frames form a strict LIFO stack for nested custom types.
+    private struct MapFrame
+    {
+        public int Offset;
+        public int Width;
+        public int Count;
+    }
+    private MapFrame[] _mapFrames = new MapFrame[4];
+    private int _mapDepth;
+
     public CborWriter(ScratchBuffer scratch)
     {
         _out = scratch;
@@ -83,6 +97,68 @@ internal sealed partial class CborWriter : ISerializer
         {
             _out.Add(0xba);
             WriteBigEndian((uint)length);
+        }
+    }
+
+    /// <summary>
+    /// Reserves space for a definite-length map header sized to hold up to
+    /// <paramref name="maxLength"/> pairs and pushes a frame. The actual pair count is
+    /// backpatched by <see cref="EndMap"/>. Fields may be skipped by the serializer, so
+    /// the final count is only known once all fields have been written.
+    /// </summary>
+    private void BeginMap(int maxLength)
+    {
+        int width = maxLength switch
+        {
+            <= 0x17 => 1,
+            <= byte.MaxValue => 2,
+            <= ushort.MaxValue => 3,
+            _ => 5
+        };
+        int offset = _out.Count;
+        _out.GetAppendSpan(width);
+        _out.Count += width;
+        if (_mapDepth == _mapFrames.Length)
+        {
+            Array.Resize(ref _mapFrames, _mapFrames.Length * 2);
+        }
+        _mapFrames[_mapDepth] = new MapFrame { Offset = offset, Width = width, Count = 0 };
+        _mapDepth++;
+    }
+
+    private void IncrementMapCount()
+    {
+        _mapFrames[_mapDepth - 1].Count++;
+    }
+
+    /// <summary>
+    /// Pops the current map frame and writes the actual pair count into the reserved
+    /// header. The count is guaranteed to fit in the reserved width since it can never
+    /// exceed the type's field count.
+    /// </summary>
+    private void EndMap()
+    {
+        _mapDepth--;
+        var frame = _mapFrames[_mapDepth];
+        var span = _out.BufferSpan.Slice(frame.Offset, frame.Width);
+        int count = frame.Count;
+        switch (frame.Width)
+        {
+            case 1:
+                span[0] = (byte)(0xa0 + count);
+                break;
+            case 2:
+                span[0] = 0xb8;
+                span[1] = (byte)count;
+                break;
+            case 3:
+                span[0] = 0xb9;
+                BinaryPrimitives.WriteUInt16BigEndian(span.Slice(1), (ushort)count);
+                break;
+            default:
+                span[0] = 0xba;
+                BinaryPrimitives.WriteUInt32BigEndian(span.Slice(1), (uint)count);
+                break;
         }
     }
 
@@ -330,8 +406,9 @@ internal sealed partial class CborWriter : ISerializer
         switch (typeInfo.Kind)
         {
             case InfoKind.CustomType:
-                // Custom types are serialized as a map
-                WriteMapLength(typeInfo.FieldCount);
+                // Custom types are serialized as a map. The pair count is backpatched in
+                // End since the serializer may skip fields (e.g. null members).
+                BeginMap(typeInfo.FieldCount);
                 return this;
         }
         throw new InvalidOperationException("Unexpected info kind: " + typeInfo.Kind);

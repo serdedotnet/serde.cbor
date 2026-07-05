@@ -296,6 +296,39 @@ public partial class RoundTripTests
         AssertRoundTrip(bytes, ByteArrayProxy.Instance);
     }
 
+    [GenerateSerde]
+    [SerdeTypeOptions(MemberFormat = MemberFormat.None)]
+    public partial record WithNullable : IEquatable<WithNullable>
+    {
+        public int X { get; init; }
+        public string? Name { get; init; }
+    }
+
+    // A null nullable member is skipped by the serializer (WriteStringIfNotNull), so the
+    // map header must reflect the actual pair count, not the declared field count.
+    [Fact]
+    public void TestNullableMemberSkipped()
+    {
+        AssertRoundTrip(new WithNullable { X = 1, Name = null });
+        AssertRoundTrip(new WithNullable { X = 1, Name = "hi" });
+    }
+
+    [GenerateSerde]
+    [SerdeTypeOptions(MemberFormat = MemberFormat.None)]
+    public partial record Nested : IEquatable<Nested>
+    {
+        public WithNullable Inner { get; init; } = null!;
+        public string? Tag { get; init; }
+    }
+
+    // Nested custom types each maintain their own backpatched header frame.
+    [Fact]
+    public void TestNestedNullableMemberSkipped()
+    {
+        AssertRoundTrip(new Nested { Inner = new WithNullable { X = 5, Name = null }, Tag = null });
+        AssertRoundTrip(new Nested { Inner = new WithNullable { X = 5, Name = "a" }, Tag = "b" });
+    }
+
     private static void AssertRoundTrip<T>(T expected)
         where T : ISerializeProvider<T>, IDeserializeProvider<T>, IEquatable<T>
     {

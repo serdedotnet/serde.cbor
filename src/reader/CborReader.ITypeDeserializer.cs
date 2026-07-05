@@ -55,7 +55,10 @@ partial class CborReader<TReader>
         {
             if (map.Kind == InfoKind.CustomType)
             {
-                if (_count >= map.FieldCount)
+                // Honor the actual number of pairs on the wire, not the type's field
+                // count: the serializer may omit fields (e.g. null members), so the wire
+                // map can be shorter than FieldCount.
+                if (_count >= (mapLength ?? map.FieldCount))
                 {
                     return ITypeDeserializer.EndOfType;
                 }
@@ -74,7 +77,7 @@ partial class CborReader<TReader>
         {
             if (map.Kind == InfoKind.CustomType)
             {
-                if (_count >= map.FieldCount)
+                if (_count >= (mapLength ?? map.FieldCount))
                 {
                     return (ITypeDeserializer.EndOfType, null);
                 }
