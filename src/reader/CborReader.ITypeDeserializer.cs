@@ -53,11 +53,12 @@ partial class CborReader<TReader>
 
         int ITypeDeserializer.TryReadIndex(ISerdeInfo map)
         {
-            if (map.Kind == InfoKind.CustomType)
+            if (map.Kind is InfoKind.CustomType or InfoKind.Union)
             {
                 // Honor the actual number of pairs on the wire, not the type's field
                 // count: the serializer may omit fields (e.g. null members), so the wire
-                // map can be shorter than FieldCount.
+                // map can be shorter than FieldCount. A union is a single-pair map keyed
+                // by the case name.
                 if (_count >= (mapLength ?? map.FieldCount))
                 {
                     return ITypeDeserializer.EndOfType;
@@ -75,7 +76,7 @@ partial class CborReader<TReader>
 
         (int, string?) ITypeDeserializer.TryReadIndexWithName(ISerdeInfo map)
         {
-            if (map.Kind == InfoKind.CustomType)
+            if (map.Kind is InfoKind.CustomType or InfoKind.Union)
             {
                 if (_count >= (mapLength ?? map.FieldCount))
                 {

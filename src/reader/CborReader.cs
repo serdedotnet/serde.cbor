@@ -442,7 +442,10 @@ internal sealed partial class CborReader<TReader> : IDeserializer
             case InfoKind.Dictionary:
                 return ReadCollection(typeInfo);
             case InfoKind.CustomType:
-                // Custom types are serialized as a map
+            case InfoKind.Union:
+                // Custom types and unions are serialized as a map. A union is a
+                // single-pair map whose key is the case name and whose value is the
+                // nested map of that case's fields.
                 int? length = ReadMapLength();
                 return new DeserializeType(this, length);
             default:

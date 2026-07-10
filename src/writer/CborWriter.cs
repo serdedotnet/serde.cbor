@@ -406,7 +406,10 @@ internal sealed partial class CborWriter : ISerializer
         switch (typeInfo.Kind)
         {
             case InfoKind.CustomType:
-                // Custom types are serialized as a map. The pair count is backpatched in
+                BeginMap(1);
+                return this;
+            case InfoKind.Union:
+                // Custom types are serialized as maps. The pair count is backpatched in
                 // End since the serializer may skip fields (e.g. null members).
                 BeginMap(typeInfo.FieldCount);
                 return this;

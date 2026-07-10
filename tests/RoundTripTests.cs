@@ -329,6 +329,53 @@ public partial class RoundTripTests
         AssertRoundTrip(new Nested { Inner = new WithNullable { X = 5, Name = "a" }, Tag = "b" });
     }
 
+    [GenerateSerde]
+    private abstract partial record Shape
+    {
+        private Shape() { }
+
+        public sealed record Circle(double Radius) : Shape;
+        public sealed record Rectangle(double Width, double Height) : Shape;
+        // A case with no fields exercises the empty nested-map path.
+        public sealed record Unit : Shape;
+    }
+
+    // Each union case must round-trip: the deserializer selects the variant by the
+    // case name key and reconstructs the nested map of that case's fields.
+    [Fact]
+    public void TestUnionCircle()
+    {
+        AssertRoundTrip<Shape>(new Shape.Circle(2.5));
+    }
+
+    [Fact]
+    public void TestUnionRectangle()
+    {
+        AssertRoundTrip<Shape>(new Shape.Rectangle(3.0, 4.0));
+    }
+
+    [Fact]
+    public void TestUnionFieldlessCase()
+    {
+        AssertRoundTrip<Shape>(new Shape.Unit());
+    }
+
+    // A union nested inside a custom type must round-trip through its own map frame.
+    [GenerateSerde]
+    [SerdeTypeOptions(MemberFormat = MemberFormat.None)]
+    private partial record HasShape : IEquatable<HasShape>
+    {
+        public Shape Shape { get; init; } = null!;
+        public string Label { get; init; } = "";
+    }
+
+    [Fact]
+    public void TestUnionNestedInRecord()
+    {
+        AssertRoundTrip(new HasShape { Shape = new Shape.Circle(1.0), Label = "c" });
+        AssertRoundTrip(new HasShape { Shape = new Shape.Rectangle(1.0, 2.0), Label = "r" });
+    }
+
     private static void AssertRoundTrip<T>(T expected)
         where T : ISerializeProvider<T>, IDeserializeProvider<T>, IEquatable<T>
     {

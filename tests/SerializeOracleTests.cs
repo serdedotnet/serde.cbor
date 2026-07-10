@@ -259,6 +259,53 @@ public partial class SerializeOracleTests
         );
     }
 
+    [GenerateSerde]
+    private abstract partial record TestUnion
+    {
+        private TestUnion() { }
+
+        public sealed record A(int X) : TestUnion;
+        public sealed record B(string Name) : TestUnion;
+    }
+
+    [Fact]
+    public void TestUnionMethod()
+    {
+        var u = new TestUnion.A(42);
+        // should be serialized as a map with the case as the key and the case's fields as a nested
+        // map.
+        AssertCborEqual<TestUnion>(u, [
+            0xa1, 0x61, 0x41, 0xa1, 0x61, 0x78, 0x18, 0x2a
+        ]);
+    }
+
+    [Fact]
+    public void TestUnionCaseB()
+    {
+        var u = new TestUnion.B("hi");
+        // { "B": { "name": "hi" } }
+        AssertCborEqual<TestUnion>(u, [
+            0xa1, 0x61, 0x42, 0xa1, 0x64, 0x6e, 0x61, 0x6d, 0x65, 0x62, 0x68, 0x69
+        ]);
+    }
+
+    // Deserialization oracle: a fixed union encoding must decode to the right case.
+    [Fact]
+    public void TestUnionDeserializeA()
+    {
+        var actual = CborSerializer.Deserialize<TestUnion>(
+            [0xa1, 0x61, 0x41, 0xa1, 0x61, 0x78, 0x18, 0x2a]);
+        Assert.Equal(new TestUnion.A(42), actual);
+    }
+
+    [Fact]
+    public void TestUnionDeserializeB()
+    {
+        var actual = CborSerializer.Deserialize<TestUnion>(
+            [0xa1, 0x61, 0x42, 0xa1, 0x64, 0x6e, 0x61, 0x6d, 0x65, 0x62, 0x68, 0x69]);
+        Assert.Equal(new TestUnion.B("hi"), actual);
+    }
+
     private void AssertCborEqual<T, U>(T value, U proxy, byte[] expected)
         where U : ISerialize<T>
     {
