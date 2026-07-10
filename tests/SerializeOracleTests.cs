@@ -259,6 +259,26 @@ public partial class SerializeOracleTests
         );
     }
 
+    [GenerateSerde]
+    private abstract partial record TestUnion
+    {
+        private TestUnion() { }
+
+        public sealed record A(int X) : TestUnion;
+        public sealed record B(string Name) : TestUnion;
+    }
+
+    [Fact]
+    public void TestUnionMethod()
+    {
+        var u = new TestUnion.A(42);
+        // should be serialized as a map with the case as the key and the case's fields as a nested
+        // map.
+        AssertCborEqual<TestUnion>(u, [
+            0xa1, 0x61, 0x41, 0xa1, 0x61, 0x78, 0x18, 0x2a
+        ]);
+    }
+
     private void AssertCborEqual<T, U>(T value, U proxy, byte[] expected)
         where U : ISerialize<T>
     {
