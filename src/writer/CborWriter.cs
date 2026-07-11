@@ -320,10 +320,10 @@ internal sealed partial class CborWriter : ISerializer
                 span[1] = (byte)bytesLen;
                 break;
             case 3:
-                WriteBigEndian((ushort)bytesLen);
+                BinaryPrimitives.WriteUInt16BigEndian(span.Slice(1), (ushort)bytesLen);
                 break;
             case 5:
-                WriteBigEndian((uint)bytesLen);
+                BinaryPrimitives.WriteUInt32BigEndian(span.Slice(1), (uint)bytesLen);
                 break;
         }
         bytes.Span.CopyTo(span[prefixLen..]);
