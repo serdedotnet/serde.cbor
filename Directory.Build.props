@@ -1,5 +1,6 @@
 <Project>
     <PropertyGroup>
+        <PackageVersion>0.2.4</PackageVersion>
         <UseArtifactsOutput>true</UseArtifactsOutput>
     </PropertyGroup>
 </Project>
