@@ -29,6 +29,6 @@ namespace Benchmarks
         }
 
         [Benchmark]
-        public byte[] SerdeMsgPack() => Serde.Cbor.MsgPackSerializer.Serialize(value, _proxy);
+        public byte[] SerdeCbor() => Serde.Cbor.CborSerializer.Serialize(value, _proxy);
     }
 }

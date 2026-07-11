@@ -3,7 +3,7 @@ using Serde;
 
 namespace Serde.Cbor;
 
-partial class CborWriter : ITypeSerializer
+partial class CborWriter<TWriter> : ITypeSerializer
 {
     private void WritePropertyName(ISerdeInfo typeInfo, int fieldIndex)
     {

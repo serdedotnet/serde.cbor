@@ -308,6 +308,36 @@ public partial class RoundTripTests
         }
     }
 
+    [Fact]
+    public void SerializeToList_AppendsExpectedBytes()
+    {
+        var value = new string('\u6c34', 256);
+        var expected = CborSerializer.Serialize(value, StringProxy.Instance);
+        var bytes = new List<byte> { 0xff };
+
+        CborSerializer.Serialize(bytes, value, StringProxy.Instance);
+
+        Assert.Equal([0xff, .. expected], bytes);
+    }
+
+    [Theory]
+    [InlineData(23)]
+    [InlineData(24)]
+    [InlineData(255)]
+    [InlineData(256)]
+    [InlineData(65535)]
+    [InlineData(65536)]
+    public void SerializeBytesToList_MatchesToArray(int size)
+    {
+        var value = Enumerable.Range(0, size).Select(static index => (byte)index).ToArray();
+        var expected = CborSerializer.Serialize(value, ByteArrayProxy.Instance);
+        var bytes = new List<byte>();
+
+        CborSerializer.Serialize(bytes, value, ByteArrayProxy.Instance);
+
+        Assert.Equal(expected, bytes);
+    }
+
     [GenerateSerde]
     [SerdeTypeOptions(MemberFormat = MemberFormat.None)]
     public partial record WithNullable : IEquatable<WithNullable>

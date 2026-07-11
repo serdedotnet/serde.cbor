@@ -1,9 +1,9 @@
 
 namespace Serde.Cbor;
 
-partial class CborWriter
+partial class CborWriter<TWriter>
 {
-    private sealed class SerCollection(CborWriter writer) : ITypeSerializer
+    private sealed class SerCollection(CborWriter<TWriter> writer) : ITypeSerializer
     {
         public ISerializer WriteFieldStart(ISerdeInfo typeInfo, int index) => writer;
 

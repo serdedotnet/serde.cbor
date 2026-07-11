@@ -1,4 +1,5 @@
 
+using System.Buffers;
 using System.Buffers.Binary;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -6,18 +7,29 @@ using System.Text;
 
 namespace Serde.Cbor;
 
-internal sealed partial class CborWriter : ISerializer
+internal sealed partial class CborWriter<TWriter> : ISerializer
+    where TWriter : IByteWriter
 {
-    private readonly ScratchBuffer _out;
+    private TWriter _out;
 
-    public CborWriter(ScratchBuffer scratch)
+    public CborWriter(TWriter output)
     {
-        _out = scratch;
+        _out = output;
+    }
+
+    public int BytesWritten { get; private set; } = 0;
+
+    /// <remarks>
+    /// This method is less efficient than writing multiple bytes at once.
+    /// </remarks>
+    private void WriteByte(byte value)
+    {
+        _out.WriteByte(value);
     }
 
     public void WriteBool(bool b)
     {
-        _out.Add((byte)(b ? 0xf5 : 0xf4));
+        WriteByte((byte)(b ? 0xf5 : 0xf4));
     }
 
     public void WriteU8(byte b) => WriteU64(b);
@@ -32,25 +44,7 @@ internal sealed partial class CborWriter : ISerializer
         }
         if (typeInfo.Kind == InfoKind.List)
         {
-            if (length <= 0x17)
-            {
-                _out.Add((byte)(0x80 + length));
-            }
-            else if (length <= byte.MaxValue)
-            {
-                _out.Add(0x98);
-                _out.Add((byte)length);
-            }
-            else if (length <= ushort.MaxValue)
-            {
-                _out.Add(0x99);
-                WriteBigEndian((ushort)length);
-            }
-            else
-            {
-                _out.Add(0x9a);
-                WriteBigEndian((uint)length);
-            }
+            WriteMajorTypeArgument((uint)length.Value, 0x80);
         }
         else if (typeInfo.Kind == InfoKind.Dictionary)
         {
@@ -63,41 +57,9 @@ internal sealed partial class CborWriter : ISerializer
         return new SerCollection(this);
     }
 
-    private static void WriteMapLength(int length, Span<byte> span)
-    {
-        if (length <= 0x17)
-        {
-            span[0] = (byte)(0xa0 + length);
-        }
-        else if (length <= byte.MaxValue)
-        {
-            span[0] = 0xb8;
-            span[1] = (byte)length;
-        }
-        else if (length <= ushort.MaxValue)
-        {
-            span[0] = 0xb9;
-            BinaryPrimitives.WriteUInt16BigEndian(span.Slice(1), (ushort)length);
-        }
-        else
-        {
-            span[0] = 0xba;
-            BinaryPrimitives.WriteUInt32BigEndian(span.Slice(1), (uint)length);
-        }
-    }
-
     private void BeginMap(int fieldCount)
     {
-        int width = fieldCount switch
-        {
-            <= 0x17 => 1,
-            <= byte.MaxValue => 2,
-            <= ushort.MaxValue => 3,
-            _ => 5
-        };
-        var span = _out.GetAppendSpan(width);
-        WriteMapLength(fieldCount, span);
-        _out.Count += width;
+        WriteMajorTypeArgument((uint)fieldCount, 0xa0);
     }
 
     public void WriteDecimal(decimal d)
@@ -117,13 +79,13 @@ internal sealed partial class CborWriter : ISerializer
 
     public void WriteF64(double d)
     {
-        _out.Add(0xfb);
+        WriteByte(0xfb);
         WriteBigEndian(d);
     }
 
     public void WriteF32(float f)
     {
-        _out.Add(0xfa);
+        WriteByte(0xfa);
         WriteBigEndian(f);
     }
 
@@ -143,35 +105,12 @@ internal sealed partial class CborWriter : ISerializer
         {
             // CBOR major type 1: negative value is encoded as -1 - n
             ulong n = (ulong)(-1 - i64);
-            if (n <= 0x17)
-            {
-                _out.Add((byte)(0x20 + n));
-            }
-            else if (n <= byte.MaxValue)
-            {
-                _out.Add(0x38);
-                _out.Add((byte)n);
-            }
-            else if (n <= ushort.MaxValue)
-            {
-                _out.Add(0x39);
-                WriteBigEndian((ushort)n);
-            }
-            else if (n <= uint.MaxValue)
-            {
-                _out.Add(0x3a);
-                WriteBigEndian((uint)n);
-            }
-            else
-            {
-                _out.Add(0x3b);
-                WriteBigEndian(n);
-            }
+            WriteMajorTypeArgument(n, 0x20);
         }
     }
     public void WriteNull()
     {
-        _out.Add(0xf6);
+        WriteByte(0xf6);
     }
 
     public void WriteDateTimeOffset(DateTimeOffset dt)
@@ -200,31 +139,7 @@ internal sealed partial class CborWriter : ISerializer
     /// </summary>
     private void WriteTag(ulong tag)
     {
-        // Major type 6 = 0xc0 base, same additional-info encoding as unsigned integers
-        if (tag <= 0x17)
-        {
-            _out.Add((byte)(0xc0 + tag));
-        }
-        else if (tag <= 0xff)
-        {
-            _out.Add(0xd8);
-            _out.Add((byte)tag);
-        }
-        else if (tag <= 0xffff)
-        {
-            _out.Add(0xd9);
-            WriteBigEndian((ushort)tag);
-        }
-        else if (tag <= 0xffffffff)
-        {
-            _out.Add(0xda);
-            WriteBigEndian((uint)tag);
-        }
-        else
-        {
-            _out.Add(0xdb);
-            WriteBigEndian(tag);
-        }
+        WriteMajorTypeArgument(tag, 0xc0);
     }
 
     public void WriteDateTime(DateTime dt)
@@ -239,104 +154,59 @@ internal sealed partial class CborWriter : ISerializer
             System.Globalization.CultureInfo.InvariantCulture));
     }
 
+    /// <summary>
+    /// Writes an unsigned integer argument for a CBOR major type (2-5) with the given length.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void WriteMajorTypeArgument(ulong length, byte majorType)
+    {
+        if (length <= 0x17)
+        {
+            WriteByte((byte)(majorType + length));
+        }
+        else if (length <= byte.MaxValue)
+        {
+            WriteByte((byte)(majorType + 0x18));
+            WriteByte((byte)length);
+        }
+        else if (length <= ushort.MaxValue)
+        {
+            WriteByte((byte)(majorType + 0x19));
+            WriteBigEndian((ushort)length);
+        }
+        else if (length <= uint.MaxValue)
+        {
+            WriteByte((byte)(majorType + 0x1a));
+            WriteBigEndian((uint)length);
+        }
+        else
+        {
+            WriteByte((byte)(majorType + 0x1b));
+            WriteBigEndian(length);
+        }
+    }
+
     public void WriteBytes(ReadOnlyMemory<byte> bytes)
     {
-        var bytesLen = bytes.Length;
-        (byte code, int prefixLen) = bytesLen switch
-        {
-            <= 0x17 => ((byte)(0x40 + bytesLen), 1),
-            <= byte.MaxValue => ((byte)0x58, 2),
-            <= ushort.MaxValue => ((byte)0x59, 3),
-            _ => ((byte)0x5a, 5)
-        };
-        var span = _out.GetAppendSpan(prefixLen + bytesLen);
-        _out.Count += prefixLen + bytesLen;
-        span[0] = code;
-        switch (prefixLen)
-        {
-            case 2:
-                span[1] = (byte)bytesLen;
-                break;
-            case 3:
-                BinaryPrimitives.WriteUInt16BigEndian(span.Slice(1), (ushort)bytesLen);
-                break;
-            case 5:
-                BinaryPrimitives.WriteUInt32BigEndian(span.Slice(1), (uint)bytesLen);
-                break;
-        }
-        bytes.Span.CopyTo(span[prefixLen..]);
+        WriteMajorTypeArgument((uint)bytes.Length, 0x40);
+        _out.WriteBytes(bytes);
     }
 
     public void WriteI8(sbyte b) => WriteI64(b);
 
-    private static readonly Encoding _utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+    private static readonly Encoding s_utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     public void WriteString(string s)
     {
-        // We can write the string directly to the output buffer, but the string
-        // is length-prefixed and we don't know precisely how long it will be until
-        // we encode it. So we need to write space for the length prefix first, then
-        // write the string, and finally go back, fill in the length prefix, and move
-        // the string if necessary.
-        var sLen = s.Length;
-        var maxByteCount = _utf8.GetMaxByteCount(sLen);
-        var appendSpan = _out.GetAppendSpan(checked(maxByteCount + 5 /* max length prefix */));
-        int estimatedOffset = sLen switch {
-            <= 0x17 => 1,
-            <= byte.MaxValue => 2,
-            <= ushort.MaxValue => 3,
-            _ => 5
-        };
-        var u8Dest = appendSpan.Slice(estimatedOffset, maxByteCount);
-        int actualStrSize = _utf8.GetBytes(s, u8Dest);
-        // write prefix and move body if necessary
-        int actualOffset = WriteUtf8Header(actualStrSize, appendSpan);
-		if (actualOffset < estimatedOffset)
-        {
-            u8Dest.CopyTo(appendSpan.Slice(actualOffset, actualStrSize));
-        }
-        _out.Count += actualOffset + actualStrSize;
+        var byteCount = s_utf8.GetByteCount(s);
+        WriteMajorTypeArgument((uint)byteCount, 0x60);
+        _out.WriteString(s, byteCount);
     }
 
     private void WriteUtf8(ReadOnlySpan<byte> str)
     {
-        var span = _out.GetAppendSpan(str.Length + 5);
-        int offset = WriteUtf8Header(str.Length, span);
-        str.CopyTo(span.Slice(offset, str.Length));
-        _out.Count += offset + str.Length;
-    }
-
-    /// <summary>
-    /// Assumes that span is large enough to hold the header.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int WriteUtf8Header(int length, Span<byte> span)
-    {
-        int offset;
-        if (length <= 0x17)
-        {
-            offset = 1;
-            span[0] = (byte)(0x60 + length);
-        }
-        else if (length <= byte.MaxValue)
-        {
-            offset = 2;
-            span[0] = 0x78;
-            span[1] = unchecked((byte)length);
-        }
-        else if (length <= ushort.MaxValue)
-        {
-            offset = 3;
-            span[0] = 0x79;
-            BinaryPrimitives.WriteUInt16BigEndian(span.Slice(1), (ushort)length);
-        }
-        else
-        {
-            offset = 5;
-            span[0] = 0x7a;
-            BinaryPrimitives.WriteUInt32BigEndian(span.Slice(1), (uint)length);
-        }
-        return offset;
+        WriteMajorTypeArgument((uint)str.Length, 0x60);
+        _out.WriteBytes(str);
     }
 
     ITypeSerializer ISerializer.WriteType(ISerdeInfo typeInfo)
@@ -372,74 +242,49 @@ internal sealed partial class CborWriter : ISerializer
 
     private void WriteU64(ulong u64)
     {
-        if (u64 <= 0x17)
-        {
-            _out.Add((byte)u64);
-        }
-        else if (u64 <= 0xff)
-        {
-            _out.Add(0x18);
-            _out.Add((byte)u64);
-        }
-        else if (u64 <= 0xffff)
-        {
-            _out.Add(0x19);
-            WriteBigEndian((ushort)u64);
-        }
-        else if (u64 <= 0xffffffff)
-        {
-            _out.Add(0x1a);
-            WriteBigEndian((uint)u64);
-        }
-        else
-        {
-            _out.Add(0x1b);
-            WriteBigEndian(u64);
-        }
+        WriteMajorTypeArgument(u64, 0x00);
     }
 
     private void WriteBigEndian(ushort value)
     {
-        var span = _out.GetAppendSpan(2);
+        Span<byte> span = stackalloc byte[2];
         BinaryPrimitives.WriteUInt16BigEndian(
             span,
             value);
-        _out.Count += 2;
+        _out.WriteBytes(span);
     }
 
     private void WriteBigEndian(uint value)
     {
-        var span = _out.GetAppendSpan(4);
+        Span<byte> span = stackalloc byte[4];
         BinaryPrimitives.WriteUInt32BigEndian(
             span,
             value
         );
-        _out.Count += 4;
+        _out.WriteBytes(span);
     }
 
     private void WriteBigEndian(ulong value)
     {
-        var span = _out.GetAppendSpan(8);
+        Span<byte> span = stackalloc byte[8];
         BinaryPrimitives.WriteUInt64BigEndian(
             span,
             value
         );
-        _out.Count += 8;
+        _out.WriteBytes(span);
     }
 
-    private void WriteBigEndian(short value) => WriteBigEndian((ushort)value);
-    private void WriteBigEndian(int value) => WriteBigEndian((uint)value);
-    private void WriteBigEndian(long value) => WriteBigEndian((ulong)value);
     private void WriteBigEndian(float value)
     {
-        var span = _out.GetAppendSpan(4);
+        Span<byte> span = stackalloc byte[4];
         BinaryPrimitives.WriteSingleBigEndian(span, value);
-        _out.Count += 4;
+        _out.WriteBytes(span);
     }
+
     private void WriteBigEndian(double value)
     {
-        var span = _out.GetAppendSpan(8);
+        Span<byte> span = stackalloc byte[8];
         BinaryPrimitives.WriteDoubleBigEndian(span, value);
-        _out.Count += 8;
+        _out.WriteBytes(span);
     }
 }
