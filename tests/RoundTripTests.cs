@@ -296,6 +296,18 @@ public partial class RoundTripTests
         AssertRoundTrip(bytes, ByteArrayProxy.Instance);
     }
 
+    [Fact]
+    public void TestBytesLengthBoundaries()
+    {
+        foreach (var size in new[] { 23, 24, 255, 256, 1024, 65535, 65536, 100000 })
+        {
+            var payload = new byte[size];
+            for (var i = 0; i < size; i++)
+                payload[i] = (byte)(i % 251);
+            AssertRoundTrip(payload, ByteArrayProxy.Instance);
+        }
+    }
+
     [GenerateSerde]
     [SerdeTypeOptions(MemberFormat = MemberFormat.None)]
     public partial record WithNullable : IEquatable<WithNullable>
