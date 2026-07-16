@@ -12,23 +12,26 @@ namespace Benchmarks
     public class DeserializeFromString<T>
         where T : Serde.IDeserializeProvider<T>
     {
-        private byte[] value = null!;
+        private byte[] _msgPackBytes = null!;
+        private byte[] _cborBytes = null!;
 
         private readonly IDeserialize<T> _proxy = T.Instance;
 
         [GlobalSetup]
         public void Setup()
         {
-            value = DataGenerator.GenerateDeserialize<T>();
+            _msgPackBytes = DataGenerator.GenerateMessagePackBytes<T>();
+            _cborBytes = DataGenerator.GenerateCborBytes<T>();
         }
 
         [Benchmark]
         public T? MessagePack()
         {
-            return MessagePackSerializer.Deserialize<T>(value);
+            return MessagePackSerializer.Deserialize<T>(_msgPackBytes);
         }
 
         [Benchmark]
-        public T SerdeMsgPack() => Serde.Cbor.MsgPackSerializer.Deserialize<T, IDeserialize<T>>(value, _proxy);
+        public T SerdeCbor() =>
+            Serde.Cbor.CborSerializer.Deserialize<T, IDeserialize<T>>(_cborBytes, _proxy);
     }
 }

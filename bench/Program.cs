@@ -1,35 +1,39 @@
 ﻿using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Diagnosers;
+using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Toolchains.NativeAot;
 using Benchmarks;
-using MessagePack;
+using Serde.Cbor;
 
-var msg1 = MessagePackSerializer.Serialize(Location.Sample);
-var msg2 = Serde.Cbor.MsgPackSerializer.Serialize(Location.Sample);
+// Correctness check: a value should survive a CBOR round trip unchanged.
+var bytes = CborSerializer.Serialize(Location.Sample);
+var roundTripped = CborSerializer.Deserialize<Location>(bytes);
 
-if (!msg1.SequenceEqual(msg2))
+Console.WriteLine("Checking correctness of serialization: " + (Location.Sample == roundTripped));
+if (Location.Sample != roundTripped)
 {
-    Console.WriteLine(string.Join(", ", msg1));
-    Console.WriteLine(string.Join(", ", msg2));
-    throw new InvalidOperationException("bytes do not match");
+    throw new InvalidOperationException(
+        $"""
+Round trip is not correct
+Original:
+{Location.Sample}
+
+Deserialized:
+{roundTripped}
+"""
+    );
 }
 
-var loc1 = MessagePackSerializer.Deserialize<Location>(msg1);
-var loc2 = Serde.Cbor.MsgPackSerializer.Deserialize<Location>(msg1);
+var nativeAotToolchain = NativeAotToolchain
+    .CreateBuilder()
+    .UseNuGet("10.0.8")
+    .TargetFrameworkMoniker("net10.0")
+    .ToToolchain();
 
-Console.WriteLine("Checking correctness of serialization: " + (loc1 == loc2));
-if (loc1 != loc2)
-{
-    throw new InvalidOperationException($"""
-Serialization is not correct
-STJ:
-{loc1}
-
-Serde:
-{loc2}
-""");
-}
-
-var config = DefaultConfig.Instance.AddDiagnoser(MemoryDiagnoser.Default);
-var summary = BenchmarkSwitcher.FromAssembly(typeof(DeserializeFromString<>).Assembly)
+var config = DefaultConfig
+    .Instance.AddJob(Job.Default.WithId("NativeAOT").WithToolchain(nativeAotToolchain))
+    .AddDiagnoser(MemoryDiagnoser.Default);
+var summary = BenchmarkSwitcher
+    .FromAssembly(typeof(DeserializeFromString<>).Assembly)
     .Run(args, config);

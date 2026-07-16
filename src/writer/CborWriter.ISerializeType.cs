@@ -1,9 +1,8 @@
-
 using Serde;
 
 namespace Serde.Cbor;
 
-partial class CborWriter : ITypeSerializer
+partial class CborWriter<TWriter> : ITypeSerializer
 {
     private void WritePropertyName(ISerdeInfo typeInfo, int fieldIndex)
     {
@@ -27,13 +26,23 @@ partial class CborWriter : ITypeSerializer
         // No-op: all types are length-prefixed.
     }
 
-    void ITypeSerializer.WriteEnum(ISerdeInfo typeInfo, int index, ISerdeInfo fieldInfo, int ordinal)
+    void ITypeSerializer.WriteEnum(
+        ISerdeInfo typeInfo,
+        int index,
+        ISerdeInfo fieldInfo,
+        int ordinal
+    )
     {
         WritePropertyName(typeInfo, index);
         WriteEnum(fieldInfo, ordinal);
     }
 
-    void ITypeSerializer.WriteValue<T>(ISerdeInfo typeInfo, int fieldIndex, T value, ISerialize<T> serialize)
+    void ITypeSerializer.WriteValue<T>(
+        ISerdeInfo typeInfo,
+        int fieldIndex,
+        T value,
+        ISerialize<T> serialize
+    )
     {
         WritePropertyName(typeInfo, fieldIndex);
         serialize.Serialize(value, this);

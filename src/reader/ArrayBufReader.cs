@@ -1,4 +1,3 @@
-
 namespace Serde.IO;
 
 internal struct ArrayBufReader(byte[] bytes) : IBufReader
