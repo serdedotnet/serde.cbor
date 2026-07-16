@@ -1,4 +1,3 @@
-
 namespace Serde.Cbor;
 
 internal interface IByteWriter

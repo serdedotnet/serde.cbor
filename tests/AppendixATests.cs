@@ -1,4 +1,3 @@
-
 namespace Serde.Cbor.Tests;
 
 /// <summary>
@@ -97,11 +96,15 @@ public partial class AppendixATests
     {
         var bytes = Convert.FromHexString("f6");
         var actual = CborSerializer.Deserialize<string?, IDeserialize<string?>>(
-            bytes, NullableRefProxy.De<string, StringProxy>.Instance);
+            bytes,
+            NullableRefProxy.De<string, StringProxy>.Instance
+        );
         Assert.Null(actual);
 
         var serialized = CborSerializer.Serialize<string?>(
-            null, NullableRefProxy.Ser<string, StringProxy>.Instance);
+            null,
+            NullableRefProxy.Ser<string, StringProxy>.Instance
+        );
         Assert.Equal("F6", Convert.ToHexString(serialized));
     }
 
@@ -113,8 +116,8 @@ public partial class AppendixATests
     [InlineData("6161", "a")]
     [InlineData("6449455446", "IETF")]
     [InlineData("62225c", "\"\\")]
-    [InlineData("62c3bc", "\u00fc")]        // ü
-    [InlineData("63e6b0b4", "\u6c34")]      // 水
+    [InlineData("62c3bc", "\u00fc")] // ü
+    [InlineData("63e6b0b4", "\u6c34")] // 水
     [InlineData("64f0908591", "\U00010151")] // 𐅑
     public void TextString(string hex, string expected)
     {
@@ -171,7 +174,9 @@ public partial class AppendixATests
         // Vector 38: NaN — .NET uses negative NaN (0xFFF8…) vs RFC positive NaN (0x7FF8…)
         var nanBytes = Convert.FromHexString("fb7ff8000000000000");
         var nanResult = CborSerializer.Deserialize<double, IDeserialize<double>>(
-            nanBytes, F64Proxy.Instance);
+            nanBytes,
+            F64Proxy.Instance
+        );
         Assert.True(double.IsNaN(nanResult));
     }
 
@@ -202,7 +207,9 @@ public partial class AppendixATests
         // Vector 35: NaN — sign bit may differ between implementations
         var nanBytes = Convert.FromHexString("fa7fc00000");
         var nanResult = CborSerializer.Deserialize<float, IDeserialize<float>>(
-            nanBytes, F32Proxy.Instance);
+            nanBytes,
+            F32Proxy.Instance
+        );
         Assert.True(float.IsNaN(nanResult));
     }
 
@@ -215,26 +222,36 @@ public partial class AppendixATests
     public void Array_Empty()
     {
         // Vector 62: []
-        AssertCollectionRoundTrip<int[], ArrayProxy.Ser<int, I32Proxy>,
-            ArrayProxy.De<int, I32Proxy>>("80", Array.Empty<int>());
+        AssertCollectionRoundTrip<
+            int[],
+            ArrayProxy.Ser<int, I32Proxy>,
+            ArrayProxy.De<int, I32Proxy>
+        >("80", Array.Empty<int>());
     }
 
     [Fact]
     public void Array_1_2_3()
     {
         // Vector 63: [1, 2, 3]
-        AssertCollectionRoundTrip<int[], ArrayProxy.Ser<int, I32Proxy>,
-            ArrayProxy.De<int, I32Proxy>>("83010203", new[] { 1, 2, 3 });
+        AssertCollectionRoundTrip<
+            int[],
+            ArrayProxy.Ser<int, I32Proxy>,
+            ArrayProxy.De<int, I32Proxy>
+        >("83010203", new[] { 1, 2, 3 });
     }
 
     [Fact]
     public void Array_1_to_25()
     {
         // Vector 65: [1, 2, 3, ..., 25]
-        AssertCollectionRoundTrip<int[], ArrayProxy.Ser<int, I32Proxy>,
-            ArrayProxy.De<int, I32Proxy>>(
+        AssertCollectionRoundTrip<
+            int[],
+            ArrayProxy.Ser<int, I32Proxy>,
+            ArrayProxy.De<int, I32Proxy>
+        >(
             "98190102030405060708090a0b0c0d0e0f101112131415161718181819",
-            Enumerable.Range(1, 25).ToArray());
+            Enumerable.Range(1, 25).ToArray()
+        );
     }
 
     // ── Maps (Major Type 5) ──────────────────────────────────────
@@ -249,8 +266,8 @@ public partial class AppendixATests
         AssertCollectionRoundTrip<
             Dictionary<string, string>,
             DictProxy.Ser<string, string, StringProxy, StringProxy>,
-            DictProxy.De<string, string, StringProxy, StringProxy>>(
-            "a0", new Dictionary<string, string>());
+            DictProxy.De<string, string, StringProxy, StringProxy>
+        >("a0", new Dictionary<string, string>());
     }
 
     [Fact]
@@ -261,15 +278,16 @@ public partial class AppendixATests
         var bytes = Convert.FromHexString(hex);
         var actual = CborSerializer.Deserialize<
             Dictionary<int, int>,
-            IDeserialize<Dictionary<int, int>>>(
-            bytes, DictProxy.De<int, int, I32Proxy, I32Proxy>.Instance);
+            IDeserialize<Dictionary<int, int>>
+        >(bytes, DictProxy.De<int, int, I32Proxy, I32Proxy>.Instance);
         Assert.Equal(2, actual.Count);
         Assert.Equal(2, actual[1]);
         Assert.Equal(4, actual[3]);
 
         var serialized = CborSerializer.Serialize(
             new Dictionary<int, int> { [1] = 2, [3] = 4 },
-            DictProxy.Ser<int, int, I32Proxy, I32Proxy>.Instance);
+            DictProxy.Ser<int, int, I32Proxy, I32Proxy>.Instance
+        );
         Assert.Equal(hex, Convert.ToHexString(serialized), StringComparer.OrdinalIgnoreCase);
     }
 
@@ -301,7 +319,14 @@ public partial class AppendixATests
         Assert.Equal("D", actual.D);
         Assert.Equal("E", actual.E);
 
-        var value = new FiveStringMap { A = "A", B = "B", C = "C", D = "D", E = "E" };
+        var value = new FiveStringMap
+        {
+            A = "A",
+            B = "B",
+            C = "C",
+            D = "D",
+            E = "E",
+        };
         var serialized = CborSerializer.Serialize(value);
         Assert.Equal(hex, Convert.ToHexString(serialized), StringComparer.OrdinalIgnoreCase);
     }
@@ -319,7 +344,9 @@ public partial class AppendixATests
 
         var bytes = Convert.FromHexString(hex);
         var actual = CborSerializer.Deserialize<DateTimeOffset, IDeserialize<DateTimeOffset>>(
-            bytes, DateTimeOffsetProxy.Instance);
+            bytes,
+            DateTimeOffsetProxy.Instance
+        );
         Assert.Equal(expected, actual);
 
         var serialized = CborSerializer.Serialize(expected, DateTimeOffsetProxy.Instance);
@@ -335,7 +362,9 @@ public partial class AppendixATests
 
         var bytes = Convert.FromHexString(hex);
         var actual = CborSerializer.Deserialize<DateTimeOffset, IDeserialize<DateTimeOffset>>(
-            bytes, DateTimeOffsetProxy.Instance);
+            bytes,
+            DateTimeOffsetProxy.Instance
+        );
         Assert.Equal(expected, actual);
     }
 
@@ -348,7 +377,9 @@ public partial class AppendixATests
 
         var bytes = Convert.FromHexString(hex);
         var actual = CborSerializer.Deserialize<DateTimeOffset, IDeserialize<DateTimeOffset>>(
-            bytes, DateTimeOffsetProxy.Instance);
+            bytes,
+            DateTimeOffsetProxy.Instance
+        );
         Assert.Equal(expected, actual);
     }
 
@@ -358,7 +389,9 @@ public partial class AppendixATests
         var dt = new DateTimeOffset(2013, 3, 21, 22, 4, 0, TimeSpan.FromHours(2));
         var serialized = CborSerializer.Serialize(dt, DateTimeOffsetProxy.Instance);
         var deserialized = CborSerializer.Deserialize<DateTimeOffset, IDeserialize<DateTimeOffset>>(
-            serialized, DateTimeOffsetProxy.Instance);
+            serialized,
+            DateTimeOffsetProxy.Instance
+        );
         Assert.Equal(dt, deserialized);
         Assert.Equal(TimeSpan.FromHours(2), deserialized.Offset);
     }
@@ -369,7 +402,9 @@ public partial class AppendixATests
         var dt = new DateTime(2013, 3, 21, 20, 4, 0, DateTimeKind.Utc);
         var serialized = CborSerializer.Serialize(dt, DateTimeProxy.Instance);
         var deserialized = CborSerializer.Deserialize<DateTime, IDeserialize<DateTime>>(
-            serialized, DateTimeProxy.Instance);
+            serialized,
+            DateTimeProxy.Instance
+        );
         Assert.Equal(dt, deserialized);
         Assert.Equal(DateTimeKind.Utc, deserialized.Kind);
     }
@@ -379,11 +414,13 @@ public partial class AppendixATests
     {
         var local = new DateTime(2013, 3, 21, 20, 4, 0, DateTimeKind.Local);
         Assert.Throws<ArgumentException>(() =>
-            CborSerializer.Serialize(local, DateTimeProxy.Instance));
+            CborSerializer.Serialize(local, DateTimeProxy.Instance)
+        );
 
         var unspecified = new DateTime(2013, 3, 21, 20, 4, 0, DateTimeKind.Unspecified);
         Assert.Throws<ArgumentException>(() =>
-            CborSerializer.Serialize(unspecified, DateTimeProxy.Instance));
+            CborSerializer.Serialize(unspecified, DateTimeProxy.Instance)
+        );
     }
 
     // ── Helpers ───────────────────────────────────────────────────

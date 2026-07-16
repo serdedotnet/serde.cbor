@@ -1,11 +1,11 @@
-
 using System.Buffers;
 
 namespace Serde.Cbor;
 
 partial class CborReader<TReader>
 {
-    private struct DeserializeType(CborReader<TReader> deserializer, int? mapLength) : ITypeDeserializer
+    private struct DeserializeType(CborReader<TReader> deserializer, int? mapLength)
+        : ITypeDeserializer
     {
         int? ITypeDeserializer.SizeOpt => mapLength;
 
@@ -17,7 +17,9 @@ partial class CborReader<TReader>
 
         char ITypeDeserializer.ReadChar(ISerdeInfo info, int index) => (char)deserializer.ReadU16();
 
-        decimal ITypeDeserializer.ReadDecimal(ISerdeInfo info, int index) => deserializer.ReadDecimal();
+        decimal ITypeDeserializer.ReadDecimal(ISerdeInfo info, int index) =>
+            deserializer.ReadDecimal();
+
         double ITypeDeserializer.ReadF64(ISerdeInfo info, int index) => deserializer.ReadF64();
 
         float ITypeDeserializer.ReadF32(ISerdeInfo info, int index) => deserializer.ReadF32();
@@ -30,7 +32,8 @@ partial class CborReader<TReader>
 
         sbyte ITypeDeserializer.ReadI8(ISerdeInfo info, int index) => deserializer.ReadI8();
 
-        string ITypeDeserializer.ReadString(ISerdeInfo info, int index) => deserializer.ReadString();
+        string ITypeDeserializer.ReadString(ISerdeInfo info, int index) =>
+            deserializer.ReadString();
 
         ushort ITypeDeserializer.ReadU16(ISerdeInfo info, int index) => deserializer.ReadU16();
 
@@ -38,18 +41,22 @@ partial class CborReader<TReader>
 
         ulong ITypeDeserializer.ReadU64(ISerdeInfo info, int index) => deserializer.ReadU64();
 
-        T ITypeDeserializer.ReadValue<T>(ISerdeInfo info, int index, IDeserialize<T> deserialize)
-             => deserialize.Deserialize(deserializer);
+        T ITypeDeserializer.ReadValue<T>(ISerdeInfo info, int index, IDeserialize<T> deserialize) =>
+            deserialize.Deserialize(deserializer);
 
-        int ITypeDeserializer.ReadEnum(ISerdeInfo typeInfo, int index, ISerdeInfo fieldInfo)
-            => ((IDeserializer)deserializer).ReadEnum(fieldInfo);
+        int ITypeDeserializer.ReadEnum(ISerdeInfo typeInfo, int index, ISerdeInfo fieldInfo) =>
+            ((IDeserializer)deserializer).ReadEnum(fieldInfo);
 
         IDeserializer ITypeDeserializer.ReadFieldStart(ISerdeInfo info, int index) => deserializer;
 
-        void ITypeDeserializer.ReadFieldEnd(ISerdeInfo info, int index, IDeserializer deserializer) { }
+        void ITypeDeserializer.ReadFieldEnd(
+            ISerdeInfo info,
+            int index,
+            IDeserializer deserializer
+        ) { }
 
-        void ITypeDeserializer.SkipValue(ISerdeInfo info, int index)
-            => throw new NotImplementedException();
+        void ITypeDeserializer.SkipValue(ISerdeInfo info, int index) =>
+            throw new NotImplementedException();
 
         int ITypeDeserializer.TryReadIndex(ISerdeInfo map)
         {
@@ -84,13 +91,17 @@ partial class CborReader<TReader>
                 }
                 var span = deserializer.ReadUtf8Span();
                 int index = map.TryGetIndex(span);
-                string? errorName = index == ITypeDeserializer.IndexNotFound ? span.ToString() : null;
+                string? errorName =
+                    index == ITypeDeserializer.IndexNotFound ? span.ToString() : null;
                 _count++;
                 return (index, errorName);
             }
             else
             {
-                return (ITypeDeserializer.IndexNotFound, "Expected a custom type, found: " + map.Kind);
+                return (
+                    ITypeDeserializer.IndexNotFound,
+                    "Expected a custom type, found: " + map.Kind
+                );
             }
         }
 
@@ -98,11 +109,11 @@ partial class CborReader<TReader>
 
         Int128 ITypeDeserializer.ReadI128(ISerdeInfo info, int index) => deserializer.ReadI128();
 
-        DateTimeOffset ITypeDeserializer.ReadDateTimeOffset(ISerdeInfo info, int index)
-            => deserializer.ReadDateTimeOffset();
+        DateTimeOffset ITypeDeserializer.ReadDateTimeOffset(ISerdeInfo info, int index) =>
+            deserializer.ReadDateTimeOffset();
 
-        DateTime ITypeDeserializer.ReadDateTime(ISerdeInfo info, int index)
-            => deserializer.ReadDateTime();
+        DateTime ITypeDeserializer.ReadDateTime(ISerdeInfo info, int index) =>
+            deserializer.ReadDateTime();
 
         void ITypeDeserializer.ReadBytes(ISerdeInfo info, int index, IBufferWriter<byte> writer)
         {

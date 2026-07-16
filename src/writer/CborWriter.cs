@@ -1,4 +1,3 @@
-
 using System.Buffers;
 using System.Buffers.Binary;
 using System.ComponentModel;
@@ -40,7 +39,9 @@ internal sealed partial class CborWriter<TWriter> : ISerializer
     {
         if (length is null)
         {
-            throw new InvalidOperationException("Cannot serialize a collection with an unknown length.");
+            throw new InvalidOperationException(
+                "Cannot serialize a collection with an unknown length."
+            );
         }
         if (typeInfo.Kind == InfoKind.List)
         {
@@ -69,12 +70,16 @@ internal sealed partial class CborWriter<TWriter> : ISerializer
 
     public void WriteU128(UInt128 u128)
     {
-        throw new NotImplementedException("128-bit integers are not yet supported in CBOR serialization.");
+        throw new NotImplementedException(
+            "128-bit integers are not yet supported in CBOR serialization."
+        );
     }
 
     public void WriteI128(Int128 i128)
     {
-        throw new NotImplementedException("128-bit integers are not yet supported in CBOR serialization.");
+        throw new NotImplementedException(
+            "128-bit integers are not yet supported in CBOR serialization."
+        );
     }
 
     public void WriteF64(double d)
@@ -108,6 +113,7 @@ internal sealed partial class CborWriter<TWriter> : ISerializer
             WriteMajorTypeArgument(n, 0x20);
         }
     }
+
     public void WriteNull()
     {
         WriteByte(0xf6);
@@ -127,11 +133,15 @@ internal sealed partial class CborWriter<TWriter> : ISerializer
     {
         if (dt.Offset == TimeSpan.Zero)
         {
-            return dt.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
-                System.Globalization.CultureInfo.InvariantCulture);
+            return dt.UtcDateTime.ToString(
+                "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
+                System.Globalization.CultureInfo.InvariantCulture
+            );
         }
-        return dt.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFFzzz",
-            System.Globalization.CultureInfo.InvariantCulture);
+        return dt.ToString(
+            "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFzzz",
+            System.Globalization.CultureInfo.InvariantCulture
+        );
     }
 
     /// <summary>
@@ -146,12 +156,17 @@ internal sealed partial class CborWriter<TWriter> : ISerializer
     {
         if (dt.Kind != DateTimeKind.Utc)
             throw new ArgumentException(
-                $"Only DateTimeKind.Utc is supported for CBOR serialization. Got {dt.Kind}. " +
-                "Use DateTimeOffset for values with a specific offset, or call DateTime.ToUniversalTime().",
-                nameof(dt));
+                $"Only DateTimeKind.Utc is supported for CBOR serialization. Got {dt.Kind}. "
+                    + "Use DateTimeOffset for values with a specific offset, or call DateTime.ToUniversalTime().",
+                nameof(dt)
+            );
         WriteTag(0);
-        WriteString(dt.ToString("yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
-            System.Globalization.CultureInfo.InvariantCulture));
+        WriteString(
+            dt.ToString(
+                "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
+                System.Globalization.CultureInfo.InvariantCulture
+            )
+        );
     }
 
     /// <summary>
@@ -194,7 +209,10 @@ internal sealed partial class CborWriter<TWriter> : ISerializer
 
     public void WriteI8(sbyte b) => WriteI64(b);
 
-    private static readonly Encoding s_utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+    private static readonly Encoding s_utf8 = new UTF8Encoding(
+        encoderShouldEmitUTF8Identifier: false,
+        throwOnInvalidBytes: true
+    );
 
     public void WriteString(string s)
     {
@@ -209,8 +227,10 @@ internal sealed partial class CborWriter<TWriter> : ISerializer
         _out.WriteBytes(str);
     }
 
-    ITypeSerializer ISerializer.WriteType(ISerdeInfo typeInfo)
-        => throw new NotSupportedException("WriteType(ISerdeInfo) is not supported. Use WriteType(ISerdeInfo, int) instead.");
+    ITypeSerializer ISerializer.WriteType(ISerdeInfo typeInfo) =>
+        throw new NotSupportedException(
+            "WriteType(ISerdeInfo) is not supported. Use WriteType(ISerdeInfo, int) instead."
+        );
 
     ITypeSerializer ISerializer.WriteType(ISerdeInfo typeInfo, int fieldCount)
     {
@@ -248,29 +268,21 @@ internal sealed partial class CborWriter<TWriter> : ISerializer
     private void WriteBigEndian(ushort value)
     {
         Span<byte> span = stackalloc byte[2];
-        BinaryPrimitives.WriteUInt16BigEndian(
-            span,
-            value);
+        BinaryPrimitives.WriteUInt16BigEndian(span, value);
         _out.WriteBytes(span);
     }
 
     private void WriteBigEndian(uint value)
     {
         Span<byte> span = stackalloc byte[4];
-        BinaryPrimitives.WriteUInt32BigEndian(
-            span,
-            value
-        );
+        BinaryPrimitives.WriteUInt32BigEndian(span, value);
         _out.WriteBytes(span);
     }
 
     private void WriteBigEndian(ulong value)
     {
         Span<byte> span = stackalloc byte[8];
-        BinaryPrimitives.WriteUInt64BigEndian(
-            span,
-            value
-        );
+        BinaryPrimitives.WriteUInt64BigEndian(span, value);
         _out.WriteBytes(span);
     }
 

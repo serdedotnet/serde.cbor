@@ -31,6 +31,7 @@ namespace Benchmarks
         }
 
         [Benchmark]
-        public T SerdeCbor() => Serde.Cbor.CborSerializer.Deserialize<T, IDeserialize<T>>(_cborBytes, _proxy);
+        public T SerdeCbor() =>
+            Serde.Cbor.CborSerializer.Deserialize<T, IDeserialize<T>>(_cborBytes, _proxy);
     }
 }

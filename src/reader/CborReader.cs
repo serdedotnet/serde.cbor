@@ -1,5 +1,3 @@
-
-
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
@@ -23,8 +21,7 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         _reader.FillBuffer(1);
     }
 
-    void IDisposable.Dispose()
-    { }
+    void IDisposable.Dispose() { }
 
     [DoesNotReturn]
     private static void ThrowEof()
@@ -89,7 +86,7 @@ internal sealed partial class CborReader<TReader> : IDeserializer
             25 => ReadBigEndianU16(),
             26 => ReadBigEndianU32(),
             27 => ReadBigEndianU64(),
-            _ => throw new DeserializeException($"Invalid CBOR additional info: {additional}")
+            _ => throw new DeserializeException($"Invalid CBOR additional info: {additional}"),
         };
     }
 
@@ -99,7 +96,9 @@ internal sealed partial class CborReader<TReader> : IDeserializer
     {
         var b = EatByteOrThrow();
         if ((b >> 5) != 0)
-            throw new DeserializeException($"Expected unsigned integer (major type 0), got 0x{b:x}");
+            throw new DeserializeException(
+                $"Expected unsigned integer (major type 0), got 0x{b:x}"
+            );
         var val = ReadCborAdditionalInfo(b);
         if (val > byte.MaxValue)
             throw new DeserializeException($"Value {val} out of range for byte");
@@ -137,7 +136,9 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         }
         else
         {
-            throw new DeserializeException("Expected either List or Dictionary, found " + typeInfo.Kind);
+            throw new DeserializeException(
+                "Expected either List or Dictionary, found " + typeInfo.Kind
+            );
         }
     }
 
@@ -181,6 +182,7 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         _reader.Advance(5);
         return result;
     }
+
     float IDeserializer.ReadF32() => ReadF32();
 
     /// <summary>
@@ -296,7 +298,9 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         var b = PeekByteOrThrow();
         var majorType = b >> 5;
         if (majorType != 6)
-            throw new DeserializeException($"Expected tag (major type 6) for DateTimeOffset, got 0x{b:x}");
+            throw new DeserializeException(
+                $"Expected tag (major type 6) for DateTimeOffset, got 0x{b:x}"
+            );
 
         EatByteOrThrow();
         var tag = ReadCborAdditionalInfo(b);
@@ -305,9 +309,11 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         {
             // Tag 0: RFC 3339 date/time string
             var s = ReadString();
-            return DateTimeOffset.Parse(s,
+            return DateTimeOffset.Parse(
+                s,
                 System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.RoundtripKind);
+                System.Globalization.DateTimeStyles.RoundtripKind
+            );
         }
         else if (tag == 1)
         {
@@ -335,7 +341,8 @@ internal sealed partial class CborReader<TReader> : IDeserializer
                     throw new DeserializeException("Tag 1 date/time cannot be NaN or Infinity");
                 long wholeSec = (long)Math.Truncate(seconds);
                 double frac = seconds - wholeSec;
-                long ticks = DateTimeOffset.FromUnixTimeSeconds(wholeSec).Ticks
+                long ticks =
+                    DateTimeOffset.FromUnixTimeSeconds(wholeSec).Ticks
                     + (long)Math.Round(frac * TimeSpan.TicksPerSecond);
                 return new DateTimeOffset(ticks, TimeSpan.Zero);
             }
@@ -347,7 +354,8 @@ internal sealed partial class CborReader<TReader> : IDeserializer
                     throw new DeserializeException("Tag 1 date/time cannot be NaN or Infinity");
                 long wholeSec = (long)Math.Truncate(seconds);
                 double frac = seconds - wholeSec;
-                long ticks = DateTimeOffset.FromUnixTimeSeconds(wholeSec).Ticks
+                long ticks =
+                    DateTimeOffset.FromUnixTimeSeconds(wholeSec).Ticks
                     + (long)Math.Round(frac * TimeSpan.TicksPerSecond);
                 return new DateTimeOffset(ticks, TimeSpan.Zero);
             }
@@ -358,18 +366,24 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         }
         else
         {
-            throw new DeserializeException($"Expected tag 0 or 1 for DateTimeOffset, got tag {tag}");
+            throw new DeserializeException(
+                $"Expected tag 0 or 1 for DateTimeOffset, got tag {tag}"
+            );
         }
     }
 
     public UInt128 ReadU128()
     {
-        throw new NotImplementedException("128-bit integers are not yet supported in CBOR serialization.");
+        throw new NotImplementedException(
+            "128-bit integers are not yet supported in CBOR serialization."
+        );
     }
 
     public Int128 ReadI128()
     {
-        throw new NotImplementedException("128-bit integers are not yet supported in CBOR serialization.");
+        throw new NotImplementedException(
+            "128-bit integers are not yet supported in CBOR serialization."
+        );
     }
 
     public void ReadBytes(IBufferWriter<byte> writer)
@@ -487,7 +501,9 @@ internal sealed partial class CborReader<TReader> : IDeserializer
     {
         var b = EatByteOrThrow();
         if ((b >> 5) != 0)
-            throw new DeserializeException($"Expected unsigned integer (major type 0), got 0x{b:x}");
+            throw new DeserializeException(
+                $"Expected unsigned integer (major type 0), got 0x{b:x}"
+            );
         return ReadCborAdditionalInfo(b);
     }
 

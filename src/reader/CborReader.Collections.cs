@@ -1,18 +1,19 @@
-
 using System.Buffers;
 
 namespace Serde.Cbor;
 
 partial class CborReader<TReader>
 {
-    private struct DeserializeCollection(CborReader<TReader> deserializer, bool isDict, int length) : ITypeDeserializer
+    private struct DeserializeCollection(CborReader<TReader> deserializer, bool isDict, int length)
+        : ITypeDeserializer
     {
         private int _index;
-        int? ITypeDeserializer.SizeOpt => isDict switch
-        {
-            true => length / 2,
-            false => length,
-        };
+        int? ITypeDeserializer.SizeOpt =>
+            isDict switch
+            {
+                true => length / 2,
+                false => length,
+            };
 
         bool ITypeDeserializer.ReadBool(ISerdeInfo info, int index)
         {
@@ -167,7 +168,11 @@ partial class CborReader<TReader>
 
         IDeserializer ITypeDeserializer.ReadFieldStart(ISerdeInfo info, int index) => deserializer;
 
-        void ITypeDeserializer.ReadFieldEnd(ISerdeInfo info, int index, IDeserializer deserializer) => _index++;
+        void ITypeDeserializer.ReadFieldEnd(
+            ISerdeInfo info,
+            int index,
+            IDeserializer deserializer
+        ) => _index++;
 
         void ITypeDeserializer.SkipValue(ISerdeInfo info, int index)
         {

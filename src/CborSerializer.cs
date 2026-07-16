@@ -6,11 +6,9 @@ namespace Serde.Cbor;
 public static partial class CborSerializer
 {
     public static byte[] Serialize<T>(T value)
-        where T : ISerializeProvider<T>
-        => Serialize(value, T.Instance);
+        where T : ISerializeProvider<T> => Serialize(value, T.Instance);
 
-    public static byte[] Serialize<T>(T value, ISerialize<T> proxy)
-        => ToArray(value, proxy);
+    public static byte[] Serialize<T>(T value, ISerialize<T> proxy) => ToArray(value, proxy);
 
     private readonly struct SpecializedBuffer(ScratchBuffer _buffer) : IByteWriter
     {

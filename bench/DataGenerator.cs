@@ -1,11 +1,11 @@
-
 using System;
 
 namespace Benchmarks
 {
     internal static class DataGenerator
     {
-        public static T GenerateSerialize<T>() where T : Serde.ISerializeProvider<T>
+        public static T GenerateSerialize<T>()
+            where T : Serde.ISerializeProvider<T>
         {
             if (typeof(T) == typeof(LoginViewModel))
                 return (T)(object)CreateLoginViewModel();
@@ -35,12 +35,13 @@ namespace Benchmarks
             throw new InvalidOperationException("Unexpected type");
         }
 
-        private static LoginViewModel CreateLoginViewModel() => new LoginViewModel
-        {
-            Email = "name.familyname@not.com",
-            // [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Dummy credentials for perf testing.")]
-            Password = "abcdefgh123456!@",
-            RememberMe = true
-        };
+        private static LoginViewModel CreateLoginViewModel() =>
+            new LoginViewModel
+            {
+                Email = "name.familyname@not.com",
+                // [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Dummy credentials for perf testing.")]
+                Password = "abcdefgh123456!@",
+                RememberMe = true,
+            };
     }
 }
