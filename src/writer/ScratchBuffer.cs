@@ -132,3 +132,26 @@ internal sealed class ScratchBuffer : IBufferWriter<byte>, IByteWriter, IDisposa
         _count = 0;
     }
 }
+
+internal readonly struct SpecializedBuffer(ScratchBuffer _buffer) : IByteWriter
+{
+    public void WriteByte(byte b)
+    {
+        _buffer.WriteByte(b);
+    }
+
+    public void WriteBytes(ReadOnlyMemory<byte> bytes)
+    {
+        _buffer.WriteBytes(bytes);
+    }
+
+    public void WriteBytes(ReadOnlySpan<byte> bytes)
+    {
+        _buffer.WriteBytes(bytes);
+    }
+
+    public void WriteString(string value, int maxByteCount = -1)
+    {
+        _buffer.WriteString(value, maxByteCount);
+    }
+}
