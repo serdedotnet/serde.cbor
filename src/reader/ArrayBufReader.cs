@@ -1,11 +1,11 @@
 namespace Serde.IO;
 
-internal struct ArrayBufReader(byte[] bytes) : IBufReader
+internal struct ArrayBufReader(Memory<byte> bytes) : IBufReader
 {
-    private readonly byte[] _buffer = bytes;
+    private readonly Memory<byte> _buffer = bytes;
     private int _offset;
 
-    public ReadOnlySpan<byte> Span => _buffer.AsSpan(_offset);
+    public ReadOnlySpan<byte> Span => _buffer.Span.Slice(_offset);
 
     public void Advance(int count)
     {

@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <PackageVersion>0.3.0</PackageVersion>
+    <PackageVersion>0.3.1</PackageVersion>
     <UseArtifactsOutput>true</UseArtifactsOutput>
   </PropertyGroup>
 </Project>
