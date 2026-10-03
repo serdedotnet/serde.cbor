@@ -481,4 +481,28 @@ public partial class RoundTripTests
         var actual = CborSerializer.Deserialize<T, IDeserialize<T>>(serialized, deserialize);
         Assert.Equal(expected, actual);
     }
+
+    [GenerateSerde]
+    public partial record Wide
+    {
+        public int Extra { get; init; }
+        public int A { get; init; }
+    }
+
+    [GenerateSerde]
+    [SerdeTypeOptions(DenyUnknownMembers = true)]
+    public partial record Narrow
+    {
+        public int A { get; init; }
+    }
+
+    [Fact]
+    public void UnknownMemberErrorReportsName()
+    {
+        var bytes = CborSerializer.Serialize(new Wide { Extra = 1, A = 2 });
+        var ex = Assert.Throws<DeserializeException>(() =>
+            CborSerializer.Deserialize<Narrow>(bytes)
+        );
+        Assert.Contains("'extra'", ex.Message);
+    }
 }
