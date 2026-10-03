@@ -505,4 +505,22 @@ public partial class RoundTripTests
         );
         Assert.Contains("'extra'", ex.Message);
     }
+  
+    [Fact]
+    public void TruncatedInputThrowsDeserializeException()
+    {
+        var bytes = CborSerializer.Serialize("text", StringProxy.Instance);
+        Assert.Throws<DeserializeException>(() =>
+            CborSerializer.Deserialize<string, StringProxy>(bytes[..^1], StringProxy.Instance)
+        );
+    }
+
+    [Fact]
+    public void WrongTypeThrowsDeserializeException()
+    {
+        var bytes = CborSerializer.Serialize("text", StringProxy.Instance);
+        Assert.Throws<DeserializeException>(() =>
+            CborSerializer.Deserialize<double, F64Proxy>(bytes, F64Proxy.Instance)
+        );
+    }
 }
