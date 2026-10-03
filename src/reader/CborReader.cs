@@ -90,6 +90,74 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         };
     }
 
+    /// <summary>
+    /// Skips one complete data item, including the contents of arrays, maps, and tagged items,
+    /// and indefinite-length items.
+    /// </summary>
+    private void SkipValue()
+    {
+        var b = EatByteOrThrow();
+        var major = b >> 5;
+        if ((b & 0x1f) == 31)
+        {
+            // Indefinite length: the chunks of a string, the items of an array, or the entries
+            // of a map, ending with a break
+            if (major is not (2 or 3 or 4 or 5))
+            {
+                throw new DeserializeException($"Unexpected CBOR byte 0x{b:x}");
+            }
+            while (PeekByteOrThrow() != 0xff)
+            {
+                SkipValue();
+                if (major == 5)
+                {
+                    SkipValue();
+                }
+            }
+            _reader.Advance(1);
+            return;
+        }
+        // For integers, simple values and floats (major types 0, 1 and 7), the argument is the
+        // value itself, so reading it skips the item
+        var argument = ReadCborAdditionalInfo(b);
+        switch (major)
+        {
+            case 2 or 3: // byte and text strings
+                SkipBytes(ToLength(argument));
+                break;
+            case 4: // array
+                for (int i = 0; i < ToLength(argument); i++)
+                {
+                    SkipValue();
+                }
+                break;
+            case 5: // map, with a key and a value for each entry
+                for (int i = 0; i < ToLength(argument); i++)
+                {
+                    SkipValue();
+                    SkipValue();
+                }
+                break;
+            case 6: // tagged item
+                SkipValue();
+                break;
+        }
+    }
+
+    private void SkipBytes(int count)
+    {
+        if (_reader.Span.Length < count)
+        {
+            RefillNoEof(count);
+        }
+        _reader.Advance(count);
+    }
+
+    private static int ToLength(ulong argument) =>
+        argument <= int.MaxValue
+            ? (int)argument
+            : throw new DeserializeException($"CBOR length {argument} is too large");
+
     byte IDeserializer.ReadU8() => ReadU8();
 
     private byte ReadU8()
