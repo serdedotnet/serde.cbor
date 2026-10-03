@@ -56,8 +56,7 @@ partial class CborReader<TReader>
             IDeserializer deserializer
         ) { }
 
-        void ITypeDeserializer.SkipValue(ISerdeInfo info, int index) =>
-            throw new NotImplementedException();
+        void ITypeDeserializer.SkipValue(ISerdeInfo info, int index) => deserializer.SkipValue();
 
         int ITypeDeserializer.TryReadIndex(ISerdeInfo map)
         {

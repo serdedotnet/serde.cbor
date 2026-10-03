@@ -176,7 +176,8 @@ partial class CborReader<TReader>
 
         void ITypeDeserializer.SkipValue(ISerdeInfo info, int index)
         {
-            throw new NotImplementedException();
+            deserializer.SkipValue();
+            _index++;
         }
 
         DateTime ITypeDeserializer.ReadDateTime(ISerdeInfo info, int index)
