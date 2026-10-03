@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Text;
 
 namespace Serde.Cbor;
 
@@ -92,7 +93,9 @@ partial class CborReader<TReader>
                 var span = deserializer.ReadUtf8Span();
                 int index = map.TryGetIndex(span);
                 string? errorName =
-                    index == ITypeDeserializer.IndexNotFound ? span.ToString() : null;
+                    index == ITypeDeserializer.IndexNotFound
+                        ? Encoding.UTF8.GetString(span)
+                        : null;
                 _count++;
                 return (index, errorName);
             }
