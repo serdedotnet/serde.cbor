@@ -26,7 +26,7 @@ internal sealed partial class CborReader<TReader> : IDeserializer
     [DoesNotReturn]
     private static void ThrowEof()
     {
-        throw new Exception("Unexpected end of stream");
+        throw new DeserializeException("Unexpected end of stream");
     }
 
     bool IDeserializer.ReadBool() => ReadBool();
@@ -157,7 +157,7 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         var b = span[0];
         if (b != 0xfb)
         {
-            throw new Exception($"Expected 64-bit double, got 0x{b:x}");
+            throw new DeserializeException($"Expected 64-bit double, got 0x{b:x}");
         }
         var result = BinaryPrimitives.ReadDoubleBigEndian(span[1..]);
         _reader.Advance(9);
@@ -176,7 +176,7 @@ internal sealed partial class CborReader<TReader> : IDeserializer
         var b = span[0];
         if (b != 0xfa)
         {
-            throw new Exception($"Expected 32-bit float, got 0x{b:x}");
+            throw new DeserializeException($"Expected 32-bit float, got 0x{b:x}");
         }
         var result = BinaryPrimitives.ReadSingleBigEndian(span[1..]);
         _reader.Advance(5);
